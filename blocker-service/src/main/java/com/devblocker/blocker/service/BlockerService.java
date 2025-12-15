@@ -44,6 +44,7 @@ public class BlockerService {
                 .assignedTo(request.getAssignedTo())
                 .teamId(request.getTeamId())
                 .tags(request.getTags() != null ? request.getTags() : new java.util.ArrayList<>())
+                .mediaUrls(request.getMediaUrls() != null ? request.getMediaUrls() : new java.util.ArrayList<>())
                 .build();
         
         final Blocker savedBlocker = blockerRepository.save(blocker);
@@ -121,6 +122,9 @@ public class BlockerService {
         }
         if (request.getTags() != null) {
             blocker.setTags(request.getTags());
+        }
+        if (request.getMediaUrls() != null) {
+            blocker.setMediaUrls(request.getMediaUrls());
         }
         
         final Blocker savedBlocker = blockerRepository.save(blocker);
@@ -206,6 +210,7 @@ public class BlockerService {
                 .teamId(blocker.getTeamId())
                 .bestSolutionId(blocker.getBestSolutionId())
                 .tags(blocker.getTags())
+                .mediaUrls(blocker.getMediaUrls())
                 .createdAt(blocker.getCreatedAt())
                 .updatedAt(blocker.getUpdatedAt())
                 .resolvedAt(blocker.getResolvedAt())

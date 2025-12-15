@@ -12,7 +12,7 @@ import { SolutionList } from '../../components/solutions/SolutionList';
 import { CommentList } from '../../components/comments/CommentList';
 import { STATUS_COLORS, SEVERITY_COLORS } from '../../utils/constants';
 import { formatDateTime } from '../../utils/format';
-import { ArrowLeft, Edit, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, Upload, X, Image as ImageIcon, Video } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const BlockerDetail = () => {
@@ -24,6 +24,9 @@ export const BlockerDetail = () => {
   const [showSolutionForm, setShowSolutionForm] = useState(false);
   const [solutionContent, setSolutionContent] = useState('');
   const [submittingSolution, setSubmittingSolution] = useState(false);
+  const [selectedSolutionFiles, setSelectedSolutionFiles] = useState([]);
+  const [uploadedSolutionFileUrls, setUploadedSolutionFileUrls] = useState([]);
+  const [uploadingSolutionFiles, setUploadingSolutionFiles] = useState(false);
 
   useEffect(() => {
     fetchBlocker();
@@ -43,6 +46,44 @@ export const BlockerDetail = () => {
     }
   };
 
+  const handleSolutionFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setSelectedSolutionFiles((prev) => [...prev, ...files]);
+  };
+
+  const handleRemoveSolutionFile = (index) => {
+    setSelectedSolutionFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUploadSolutionFiles = async () => {
+    if (selectedSolutionFiles.length === 0) return;
+
+    setUploadingSolutionFiles(true);
+    try {
+      const response = await solutionService.uploadFiles(selectedSolutionFiles);
+      setUploadedSolutionFileUrls((prev) => [...prev, ...response.fileUrls]);
+      setSelectedSolutionFiles([]);
+      toast.success('Files uploaded successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload files');
+      console.error(error);
+    } finally {
+      setUploadingSolutionFiles(false);
+    }
+  };
+
+  const handleRemoveUploadedSolutionFile = (index) => {
+    setUploadedSolutionFileUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const isImage = (url) => {
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  };
+
+  const isVideo = (url) => {
+    return /\.(mp4|webm|mov|avi)$/i.test(url);
+  };
+
   const handleSubmitSolution = async (e) => {
     e.preventDefault();
     if (!user?.userId) {
@@ -52,9 +93,11 @@ export const BlockerDetail = () => {
 
     setSubmittingSolution(true);
     try {
-      await solutionService.addSolution(id, solutionContent, user.userId);
+      await solutionService.addSolution(id, solutionContent, user.userId, uploadedSolutionFileUrls);
       toast.success('Solution added successfully!');
       setSolutionContent('');
+      setUploadedSolutionFileUrls([]);
+      setSelectedSolutionFiles([]);
       setShowSolutionForm(false);
       fetchBlocker(); // Refresh to show new solution
     } catch (error) {
@@ -118,6 +161,39 @@ export const BlockerDetail = () => {
               <h3 className="text-sm font-medium text-gray-500 mb-1">Description</h3>
               <p className="text-gray-900 whitespace-pre-wrap">{blocker.description}</p>
             </div>
+            
+            {/* Blocker Media */}
+            {blocker.mediaUrls && blocker.mediaUrls.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Media</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {blocker.mediaUrls.map((url, index) => {
+                    const fullUrl = url.startsWith('http') ? url : blockerService.getFileUrl(url.split('/').pop());
+                    return (
+                      <div key={index} className="relative">
+                        {isImage(url) ? (
+                          <img
+                            src={fullUrl}
+                            alt={`Blocker media ${index + 1}`}
+                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                          />
+                        ) : isVideo(url) ? (
+                          <video
+                            src={fullUrl}
+                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                            controls
+                          />
+                        ) : (
+                          <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                            <ImageIcon className="w-8 h-8 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
               <div>
                 <p className="text-sm text-gray-500">Created</p>
@@ -165,7 +241,7 @@ export const BlockerDetail = () => {
         </CardHeader>
         <CardBody>
           {showSolutionForm && (
-            <form onSubmit={handleSubmitSolution} className="mb-6 pb-6 border-b border-gray-200">
+            <form onSubmit={handleSubmitSolution} className="mb-6 pb-6 border-b border-gray-200 space-y-4">
               <Textarea
                 label="Your Solution"
                 value={solutionContent}
@@ -174,6 +250,100 @@ export const BlockerDetail = () => {
                 rows={6}
                 placeholder="Describe your solution to this blocker..."
               />
+              
+              {/* File Upload Section for Solution */}
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-gray-700">
+                  Photos & Videos (Optional)
+                </label>
+                
+                {/* File Input */}
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <Upload className="w-5 h-5" />
+                    <span className="text-sm font-medium">Choose Files</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleSolutionFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                  {selectedSolutionFiles.length > 0 && (
+                    <Button
+                      type="button"
+                      onClick={handleUploadSolutionFiles}
+                      loading={uploadingSolutionFiles}
+                      variant="secondary"
+                    >
+                      Upload {selectedSolutionFiles.length} file(s)
+                    </Button>
+                  )}
+                </div>
+
+                {/* Selected Files Preview */}
+                {selectedSolutionFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSolutionFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-lg text-sm"
+                      >
+                        <span className="truncate max-w-[200px]">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSolutionFile(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Uploaded Files Preview */}
+                {uploadedSolutionFileUrls.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">Uploaded files:</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {uploadedSolutionFileUrls.map((url, index) => {
+                        const fullUrl = url.startsWith('http') ? url : solutionService.getFileUrl(url.split('/').pop());
+                        return (
+                          <div key={index} className="relative group">
+                            {isImage(url) ? (
+                              <img
+                                src={fullUrl}
+                                alt={`Upload ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                              />
+                            ) : isVideo(url) ? (
+                              <video
+                                src={fullUrl}
+                                className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                                controls
+                              />
+                            ) : (
+                              <div className="w-full h-32 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 text-gray-400" />
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveUploadedSolutionFile(index)}
+                              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-4 mt-4">
                 <Button type="submit" loading={submittingSolution}>
                   Submit Solution
@@ -184,6 +354,8 @@ export const BlockerDetail = () => {
                   onClick={() => {
                     setShowSolutionForm(false);
                     setSolutionContent('');
+                    setUploadedSolutionFileUrls([]);
+                    setSelectedSolutionFiles([]);
                   }}
                 >
                   Cancel

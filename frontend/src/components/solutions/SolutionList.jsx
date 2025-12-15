@@ -5,7 +5,8 @@ import { Card, CardBody } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { formatRelativeTime } from '../../utils/format';
-import { ThumbsUp, CheckCircle, Award } from 'lucide-react';
+import { ThumbsUp, CheckCircle, Award, Image as ImageIcon } from 'lucide-react';
+import { solutionService } from '../../services/solutionService';
 import toast from 'react-hot-toast';
 
 export const SolutionList = ({ blockerId, blocker, onUpdate }) => {
@@ -143,7 +144,42 @@ export const SolutionList = ({ blockerId, blocker, onUpdate }) => {
                   )}
               </div>
             </div>
-            <p className="text-gray-900 whitespace-pre-wrap">{solution.content}</p>
+            <p className="text-gray-900 whitespace-pre-wrap mb-4">{solution.content}</p>
+            
+            {/* Solution Media */}
+            {solution.mediaUrls && solution.mediaUrls.length > 0 && (
+              <div className="mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {solution.mediaUrls.map((url, index) => {
+                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                    const isVideo = /\.(mp4|webm|mov|avi)$/i.test(url);
+                    const fullUrl = url.startsWith('http') ? url : solutionService.getFileUrl(url.split('/').pop());
+                    
+                    return (
+                      <div key={index} className="relative">
+                        {isImage ? (
+                          <img
+                            src={fullUrl}
+                            alt={`Solution media ${index + 1}`}
+                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                          />
+                        ) : isVideo ? (
+                          <video
+                            src={fullUrl}
+                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                            controls
+                          />
+                        ) : (
+                          <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                            <ImageIcon className="w-8 h-8 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </CardBody>
         </Card>
       ))}

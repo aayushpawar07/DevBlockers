@@ -38,5 +38,28 @@ export const blockerService = {
     });
     return response.data;
   },
+
+  async uploadFiles(files) {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append('files', file);
+    });
+    const response = await blockerApi.post('/blockers/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  getFileUrl(url) {
+    // If it's already a full URL, return it
+    if (url.startsWith('http')) {
+      return url;
+    }
+    // Extract filename from path if needed
+    const filename = url.includes('/') ? url.split('/').pop() : url;
+    return `${import.meta.env.VITE_BLOCKER_SERVICE_URL || 'http://localhost:8083'}/api/v1/blockers/files/${filename}`;
+  },
 };
 

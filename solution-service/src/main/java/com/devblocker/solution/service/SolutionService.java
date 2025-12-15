@@ -44,6 +44,7 @@ public class SolutionService {
                 .blockerId(blockerId)
                 .userId(request.getUserId())
                 .content(request.getContent())
+                .mediaUrls(request.getMediaUrls() != null ? request.getMediaUrls() : new java.util.ArrayList<>())
                 .upvotes(0)
                 .accepted(false)
                 .build();
@@ -178,6 +179,7 @@ public class SolutionService {
                 .blockerId(solution.getBlockerId())
                 .userId(solution.getUserId())
                 .content(solution.getContent())
+                .mediaUrls(solution.getMediaUrls())
                 .upvotes(solution.getUpvotes())
                 .accepted(solution.getAccepted())
                 .createdAt(solution.getCreatedAt())

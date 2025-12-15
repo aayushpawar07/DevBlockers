@@ -1,10 +1,11 @@
 import { solutionApi } from './api';
 
 export const solutionService = {
-  async addSolution(blockerId, content, userId) {
+  async addSolution(blockerId, content, userId, mediaUrls = []) {
     const response = await solutionApi.post(`/blockers/${blockerId}/solutions`, {
       content,
       userId,
+      mediaUrls,
     });
     return response.data;
   },
@@ -31,6 +32,29 @@ export const solutionService = {
   async getSolution(solutionId) {
     const response = await solutionApi.get(`/solutions/${solutionId}`);
     return response.data;
+  },
+
+  async uploadFiles(files) {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append('files', file);
+    });
+    const response = await solutionApi.post('/solutions/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  getFileUrl(url) {
+    // If it's already a full URL, return it
+    if (url.startsWith('http')) {
+      return url;
+    }
+    // Extract filename from path if needed
+    const filename = url.includes('/') ? url.split('/').pop() : url;
+    return `${import.meta.env.VITE_SOLUTION_SERVICE_URL || 'http://localhost:8084'}/api/v1/solutions/files/${filename}`;
   },
 };
 
