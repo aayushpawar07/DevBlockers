@@ -1,0 +1,4 @@
+# This directory contains JWT RSA keys
+# Generate keys using scripts/generate-jwt-keys.sh or scripts/generate-jwt-keys.ps1
+# DO NOT COMMIT ACTUAL KEY FILES TO VERSION CONTROL
+
