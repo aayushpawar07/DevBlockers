@@ -200,27 +200,33 @@ export const BlockerDetail = () => {
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Media</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {blocker.mediaUrls.map((url, index) => {
-                    // Extract fileId (UUID) from URL
-                    const fileId = url.includes('/') ? url.split('/').pop() : url;
-                    const fullUrl = url.startsWith('http') ? url : blockerService.getFileUrl(fileId);
+                    // Extract fileId (UUID) from URL path like /api/v1/blockers/files/{fileId}
+                    let fileId = url;
+                    if (url.includes('/')) {
+                      const parts = url.split('/');
+                      fileId = parts[parts.length - 1]; // Get last part (fileId)
+                    }
+                    const fullUrl = blockerService.getFileUrl(fileId);
                     
-                    // Try to determine type from URL or use generic media display
-                    // Since we're using UUIDs, we'll try both image and video and let the browser handle it
+                    console.log(`Rendering media ${index + 1}: url=${url}, fileId=${fileId}, fullUrl=${fullUrl}`);
+                    
                     return (
-                      <div key={index} className="relative">
+                      <div key={index} className="relative group">
                         <img
                           src={fullUrl}
                           alt={`Blocker media ${index + 1}`}
                           className="w-full h-48 object-cover rounded-lg border border-gray-200"
                           onError={(e) => {
+                            console.error(`Failed to load image: ${fullUrl}, trying as video`);
                             // If image fails, try as video
+                            const parent = e.target.parentElement;
                             const video = document.createElement('video');
                             video.src = fullUrl;
                             video.className = "w-full h-48 object-cover rounded-lg border border-gray-200";
                             video.controls = true;
                             video.onerror = () => {
                               console.error(`Failed to load blocker media: ${fullUrl}`);
-                              e.target.parentElement.innerHTML = `
+                              parent.innerHTML = `
                                 <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
                                   <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -228,7 +234,7 @@ export const BlockerDetail = () => {
                                 </div>
                               `;
                             };
-                            e.target.parentElement.replaceChild(video, e.target);
+                            parent.replaceChild(video, e.target);
                           }}
                           onLoad={() => {
                             console.log(`Successfully loaded blocker image: ${fullUrl}`);

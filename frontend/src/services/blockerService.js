@@ -44,22 +44,32 @@ export const blockerService = {
     Array.from(files).forEach((file) => {
       formData.append('files', file);
     });
-    const response = await blockerApi.post('/blockers/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    console.log('Uploading files:', Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type })));
+    // Don't set Content-Type header - let axios/browser set it with boundary
+    const response = await blockerApi.post('/blockers/upload', formData);
+    console.log('Upload response:', response.data);
+    if (!response.data || !response.data.fileUrls) {
+      throw new Error('Invalid response from upload endpoint');
+    }
     return response.data;
   },
 
   getFileUrl(url) {
     // If it's already a full URL, return it
-    if (url.startsWith('http')) {
+    if (url && url.startsWith('http')) {
       return url;
     }
     // Extract file ID (UUID) from path - format is /api/v1/blockers/files/{fileId}
-    const fileId = url.includes('/') ? url.split('/').pop() : url;
-    return `${import.meta.env.VITE_BLOCKER_SERVICE_URL || 'http://localhost:8083'}/api/v1/blockers/files/${fileId}`;
+    // or just the fileId itself
+    let fileId = url;
+    if (url && url.includes('/')) {
+      const parts = url.split('/');
+      fileId = parts[parts.length - 1]; // Get last part (fileId)
+    }
+    const baseUrl = import.meta.env.VITE_BLOCKER_SERVICE_URL || 'http://localhost:8083';
+    const fullUrl = `${baseUrl}/api/v1/blockers/files/${fileId}`;
+    console.log(`getFileUrl: url=${url}, fileId=${fileId}, fullUrl=${fullUrl}`);
+    return fullUrl;
   },
 };
 
