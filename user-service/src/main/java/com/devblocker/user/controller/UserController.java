@@ -11,6 +11,7 @@ import com.devblocker.user.dto.UserSearchRequest;
 import com.devblocker.user.service.BadgeService;
 import com.devblocker.user.service.ProfileService;
 import com.devblocker.user.service.ReputationService;
+import com.devblocker.user.service.TeamService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,6 +30,7 @@ public class UserController {
     private final ProfileService profileService;
     private final ReputationService reputationService;
     private final BadgeService badgeService;
+    private final TeamService teamService;
     
     @GetMapping("/{id}")
     @Operation(summary = "Get user profile", description = "Retrieves the profile information for a specific user")
@@ -93,6 +95,13 @@ public class UserController {
     public ResponseEntity<List<UserBadgeResponse>> getUserBadges(@PathVariable UUID id) {
         List<UserBadgeResponse> badges = badgeService.getUserBadges(id);
         return ResponseEntity.ok(badges);
+    }
+    
+    @GetMapping("/{id}/teams")
+    @Operation(summary = "Get user teams", description = "Retrieves all teams that a user belongs to")
+    public ResponseEntity<List<com.devblocker.user.dto.TeamResponse>> getUserTeams(@PathVariable UUID id) {
+        List<com.devblocker.user.dto.TeamResponse> teams = teamService.getUserTeams(id);
+        return ResponseEntity.ok(teams);
     }
 }
 

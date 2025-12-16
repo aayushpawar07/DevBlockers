@@ -9,6 +9,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -81,6 +82,40 @@ public class UserServiceClient {
         }
     }
     
+    /**
+     * Get team members by team code
+     * 
+     * @param teamCode Team code (DEVOPS, BACKEND, FRONTEND, QA)
+     * @param authToken JWT token for authentication (optional)
+     * @return List of user IDs who are members of the team
+     */
+    public List<UUID> getTeamMembersByCode(String teamCode, String authToken) {
+        try {
+            TeamMemberResponse response = webClient.get()
+                    .uri(userServiceUrl + "/api/v1/teams/code/{teamCode}/members", teamCode)
+                    .headers(headers -> {
+                        if (authToken != null && !authToken.isEmpty()) {
+                            headers.setBearerAuth(authToken);
+                        }
+                    })
+                    .retrieve()
+                    .bodyToMono(TeamMemberResponse.class)
+                    .timeout(Duration.ofSeconds(5))
+                    .block();
+            
+            if (response == null || response.getMembers() == null) {
+                return new java.util.ArrayList<>();
+            }
+            
+            return response.getMembers().stream()
+                    .map(TeamMemberResponse.MemberInfo::getUserId)
+                    .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            log.error("Failed to fetch team members for team code: {}", teamCode, e);
+            return new java.util.ArrayList<>();
+        }
+    }
+    
     @lombok.Data
     @lombok.NoArgsConstructor
     @lombok.AllArgsConstructor
@@ -90,6 +125,25 @@ public class UserServiceClient {
         private String avatarUrl;
         private UUID teamId;
         private String teamName;
+    }
+    
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class TeamMemberResponse {
+        private UUID teamId;
+        private String teamName;
+        private List<MemberInfo> members;
+        
+        @lombok.Data
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class MemberInfo {
+            private UUID userId;
+            private String name;
+            private String avatarUrl;
+            private java.time.LocalDateTime joinedAt;
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.devblocker.blocker.service;
 
+import com.devblocker.blocker.client.UserServiceClient;
 import com.devblocker.blocker.dto.BlockerResponse;
 import com.devblocker.blocker.dto.CreateBlockerRequest;
 import com.devblocker.blocker.dto.PageResponse;
@@ -21,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -32,6 +34,7 @@ public class BlockerService {
     private final BlockerRepository blockerRepository;
     private final EventPublisher eventPublisher;
     private final DuplicateDetectionService duplicateDetectionService;
+    private final UserServiceClient userServiceClient;
     
     @Transactional
     public BlockerResponse createBlocker(CreateBlockerRequest request) {
@@ -43,6 +46,7 @@ public class BlockerService {
                 .createdBy(request.getCreatedBy())
                 .assignedTo(request.getAssignedTo())
                 .teamId(request.getTeamId())
+                .teamCode(request.getTeamCode())
                 .tags(request.getTags() != null ? request.getTags() : new java.util.ArrayList<>())
                 .mediaUrls(request.getMediaUrls() != null ? request.getMediaUrls() : new java.util.ArrayList<>())
                 .build();
@@ -79,13 +83,30 @@ public class BlockerService {
             UUID createdBy,
             UUID assignedTo,
             UUID teamId,
+            String teamCode,
             String tag,
+            UUID userId,
             int page,
             int size) {
         
         Pageable pageable = PageRequest.of(page, size);
-        Page<Blocker> blockers = blockerRepository.findWithFilters(
-                status, severity, createdBy, assignedTo, teamId, tag, pageable);
+        
+        // If userId is provided, fetch their team codes for priority sorting
+        List<String> userTeamCodes = null;
+        if (userId != null) {
+            // This will be called from user-service via REST client
+            // For now, we'll handle it in the service layer
+            userTeamCodes = getUserTeamCodes(userId);
+        }
+        
+        Page<Blocker> blockers;
+        if (userTeamCodes != null && !userTeamCodes.isEmpty()) {
+            blockers = blockerRepository.findWithFilters(
+                    status, severity, createdBy, assignedTo, teamId, teamCode, tag, userTeamCodes, pageable);
+        } else {
+            blockers = blockerRepository.findWithFiltersNoPriority(
+                    status, severity, createdBy, assignedTo, teamId, teamCode, tag, pageable);
+        }
         
         return PageResponse.<BlockerResponse>builder()
                 .content(blockers.getContent().stream()
@@ -98,6 +119,10 @@ public class BlockerService {
                 .first(blockers.isFirst())
                 .last(blockers.isLast())
                 .build();
+    }
+    
+    private List<String> getUserTeamCodes(UUID userId) {
+        return userServiceClient.getUserTeamCodes(userId, null);
     }
     
     @Transactional
@@ -151,6 +176,14 @@ public class BlockerService {
         
         if (blocker.getStatus() == BlockerStatus.RESOLVED) {
             throw new IllegalArgumentException("Blocker is already resolved");
+        }
+        
+        // Authorization: Only team members can resolve blockers
+        if (resolvedBy != null && blocker.getTeamCode() != null) {
+            List<String> userTeamCodes = getUserTeamCodes(resolvedBy);
+            if (!userTeamCodes.contains(blocker.getTeamCode())) {
+                throw new IllegalStateException("Only team members can resolve blockers for this team");
+            }
         }
         
         blocker.setStatus(BlockerStatus.RESOLVED);
@@ -208,6 +241,7 @@ public class BlockerService {
                 .createdBy(blocker.getCreatedBy())
                 .assignedTo(blocker.getAssignedTo())
                 .teamId(blocker.getTeamId())
+                .teamCode(blocker.getTeamCode())
                 .bestSolutionId(blocker.getBestSolutionId())
                 .tags(blocker.getTags())
                 .mediaUrls(blocker.getMediaUrls())

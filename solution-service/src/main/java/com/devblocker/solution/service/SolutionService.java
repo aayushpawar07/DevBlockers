@@ -1,6 +1,7 @@
 package com.devblocker.solution.service;
 
 import com.devblocker.solution.client.BlockerServiceClient;
+import com.devblocker.solution.client.UserServiceClient;
 import com.devblocker.solution.dto.AcceptSolutionRequest;
 import com.devblocker.solution.dto.CreateSolutionRequest;
 import com.devblocker.solution.dto.SolutionResponse;
@@ -29,6 +30,7 @@ public class SolutionService {
     private final SolutionUpvoteRepository upvoteRepository;
     private final EventPublisher eventPublisher;
     private final BlockerServiceClient blockerServiceClient;
+    private final UserServiceClient userServiceClient;
     
     @Transactional
     public SolutionResponse addSolution(UUID blockerId, CreateSolutionRequest request, String authToken) {
@@ -151,6 +153,15 @@ public class SolutionService {
         // Check if blocker already has an accepted solution
         if (solutionRepository.existsByBlockerIdAndAcceptedTrue(solution.getBlockerId())) {
             throw new IllegalStateException("Blocker already has an accepted solution");
+        }
+        
+        // Authorization: Only team members can accept solutions
+        BlockerServiceClient.BlockerResponse blocker = blockerServiceClient.getBlocker(solution.getBlockerId(), authToken);
+        if (blocker != null && blocker.getTeamCode() != null && request.getUserId() != null) {
+            List<String> userTeamCodes = userServiceClient.getUserTeamCodes(request.getUserId(), authToken);
+            if (!userTeamCodes.contains(blocker.getTeamCode())) {
+                throw new IllegalStateException("Only team members can accept solutions for this blocker");
+            }
         }
         
         // Mark solution as accepted

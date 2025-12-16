@@ -7,8 +7,11 @@ import com.devblocker.user.dto.TeamResponse;
 import com.devblocker.user.dto.UpdateTeamRequest;
 import com.devblocker.user.model.Profile;
 import com.devblocker.user.model.Team;
+import com.devblocker.user.model.TeamCode;
+import com.devblocker.user.model.UserTeam;
 import com.devblocker.user.repository.ProfileRepository;
 import com.devblocker.user.repository.TeamRepository;
+import com.devblocker.user.repository.UserTeamRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,20 +31,36 @@ public class TeamService {
     
     private final TeamRepository teamRepository;
     private final ProfileRepository profileRepository;
+    private final UserTeamRepository userTeamRepository;
     
     public TeamMemberResponse getTeamMembers(UUID teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         
-        List<Profile> profiles = profileRepository.findByTeamId(teamId);
+        List<UserTeam> userTeams = userTeamRepository.findByTeamId(teamId);
+        List<UUID> userIds = userTeams.stream()
+                .map(UserTeam::getUserId)
+                .collect(Collectors.toList());
         
-        List<TeamMemberResponse.MemberInfo> members = profiles.stream()
-                .map(profile -> TeamMemberResponse.MemberInfo.builder()
-                        .userId(profile.getUserId())
-                        .name(profile.getName())
-                        .avatarUrl(profile.getAvatarUrl())
-                        .joinedAt(profile.getCreatedAt())
-                        .build())
+        List<Profile> profiles = profileRepository.findAllById(userIds);
+        
+        List<TeamMemberResponse.MemberInfo> members = userTeams.stream()
+                .map(userTeam -> {
+                    Profile profile = profiles.stream()
+                            .filter(p -> p.getUserId().equals(userTeam.getUserId()))
+                            .findFirst()
+                            .orElse(null);
+                    if (profile == null) {
+                        return null;
+                    }
+                    return TeamMemberResponse.MemberInfo.builder()
+                            .userId(profile.getUserId())
+                            .name(profile.getName())
+                            .avatarUrl(profile.getAvatarUrl())
+                            .joinedAt(userTeam.getJoinedAt())
+                            .build();
+                })
+                .filter(member -> member != null)
                 .collect(Collectors.toList());
         
         return TeamMemberResponse.builder()
@@ -51,18 +70,52 @@ public class TeamService {
                 .build();
     }
     
+    public TeamMemberResponse getTeamMembersByCode(TeamCode teamCode) {
+        Team team = teamRepository.findByTeamCode(teamCode)
+                .orElseThrow(() -> new IllegalArgumentException("Team not found with code: " + teamCode));
+        return getTeamMembers(team.getTeamId());
+    }
+    
     public TeamResponse getTeam(UUID teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         
-        int memberCount = profileRepository.findByTeamId(teamId).size();
+        int memberCount = userTeamRepository.findByTeamId(teamId).size();
         
         return TeamResponse.builder()
                 .teamId(team.getTeamId())
                 .name(team.getName())
+                .teamCode(team.getTeamCode())
                 .memberCount(memberCount)
                 .createdAt(team.getCreatedAt())
                 .build();
+    }
+    
+    public TeamResponse getTeamByCode(TeamCode teamCode) {
+        Team team = teamRepository.findByTeamCode(teamCode)
+                .orElseThrow(() -> new IllegalArgumentException("Team not found with code: " + teamCode));
+        return getTeam(team.getTeamId());
+    }
+    
+    public List<TeamResponse> getUserTeams(UUID userId) {
+        List<UserTeam> userTeams = userTeamRepository.findByUserId(userId);
+        return userTeams.stream()
+                .map(userTeam -> {
+                    Team team = teamRepository.findById(userTeam.getTeamId())
+                            .orElse(null);
+                    if (team == null) {
+                        return null;
+                    }
+                    return TeamResponse.builder()
+                            .teamId(team.getTeamId())
+                            .name(team.getName())
+                            .teamCode(team.getTeamCode())
+                            .memberCount(userTeamRepository.findByTeamId(team.getTeamId()).size())
+                            .createdAt(team.getCreatedAt())
+                            .build();
+                })
+                .filter(team -> team != null)
+                .collect(Collectors.toList());
     }
     
     public PageResponse<TeamResponse> getAllTeams(int page, int size) {
@@ -72,10 +125,11 @@ public class TeamService {
         return PageResponse.<TeamResponse>builder()
                 .content(teams.getContent().stream()
                         .map(team -> {
-                            int memberCount = profileRepository.findByTeamId(team.getTeamId()).size();
+                            int memberCount = userTeamRepository.findByTeamId(team.getTeamId()).size();
                             return TeamResponse.builder()
                                     .teamId(team.getTeamId())
                                     .name(team.getName())
+                                    .teamCode(team.getTeamCode())
                                     .memberCount(memberCount)
                                     .createdAt(team.getCreatedAt())
                                     .build();
@@ -92,16 +146,22 @@ public class TeamService {
     
     @Transactional
     public TeamResponse createTeam(CreateTeamRequest request) {
+        if (request.getTeamCode() != null && teamRepository.existsByTeamCode(request.getTeamCode())) {
+            throw new IllegalArgumentException("Team with code " + request.getTeamCode() + " already exists");
+        }
+        
         Team team = Team.builder()
                 .name(request.getName())
+                .teamCode(request.getTeamCode())
                 .build();
         
         team = teamRepository.save(team);
-        log.info("Team created: {}", team.getName());
+        log.info("Team created: {} with code: {}", team.getName(), team.getTeamCode());
         
         return TeamResponse.builder()
                 .teamId(team.getTeamId())
                 .name(team.getName())
+                .teamCode(team.getTeamCode())
                 .memberCount(0)
                 .createdAt(team.getCreatedAt())
                 .build();
@@ -112,15 +172,24 @@ public class TeamService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         
-        team.setName(request.getName());
+        if (request.getName() != null) {
+            team.setName(request.getName());
+        }
+        if (request.getTeamCode() != null && !request.getTeamCode().equals(team.getTeamCode())) {
+            if (teamRepository.existsByTeamCode(request.getTeamCode())) {
+                throw new IllegalArgumentException("Team with code " + request.getTeamCode() + " already exists");
+            }
+            team.setTeamCode(request.getTeamCode());
+        }
         team = teamRepository.save(team);
         
         log.info("Team updated: {}", team.getName());
         
-        int memberCount = profileRepository.findByTeamId(teamId).size();
+        int memberCount = userTeamRepository.findByTeamId(teamId).size();
         return TeamResponse.builder()
                 .teamId(team.getTeamId())
                 .name(team.getName())
+                .teamCode(team.getTeamCode())
                 .memberCount(memberCount)
                 .createdAt(team.getCreatedAt())
                 .build();
@@ -131,12 +200,9 @@ public class TeamService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
         
-        // Remove team from all profiles
-        List<Profile> profiles = profileRepository.findByTeamId(teamId);
-        for (Profile profile : profiles) {
-            profile.setTeamId(null);
-            profileRepository.save(profile);
-        }
+        // Remove all user-team mappings
+        List<UserTeam> userTeams = userTeamRepository.findByTeamId(teamId);
+        userTeamRepository.deleteAll(userTeams);
         
         teamRepository.delete(team);
         log.info("Team deleted: {}", teamId);
@@ -149,11 +215,23 @@ public class TeamService {
             throw new IllegalArgumentException("Team not found: " + teamId);
         }
         
+        // Validate profile exists
         Profile profile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Profile not found for user: " + userId));
         
-        profile.setTeamId(teamId);
-        profileRepository.save(profile);
+        // Check if user is already a member
+        if (userTeamRepository.existsByUserIdAndTeamId(userId, teamId)) {
+            log.warn("User {} is already a member of team {}", userId, teamId);
+            return;
+        }
+        
+        // Create user-team mapping
+        UserTeam userTeam = UserTeam.builder()
+                .userId(userId)
+                .teamId(teamId)
+                .build();
+        
+        userTeamRepository.save(userTeam);
         
         log.info("User {} added to team {}", userId, teamId);
     }
@@ -165,15 +243,10 @@ public class TeamService {
             throw new IllegalArgumentException("Team not found: " + teamId);
         }
         
-        Profile profile = profileRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Profile not found for user: " + userId));
+        UserTeam userTeam = userTeamRepository.findByUserIdAndTeamId(userId, teamId)
+                .orElseThrow(() -> new IllegalArgumentException("User is not a member of this team"));
         
-        if (!teamId.equals(profile.getTeamId())) {
-            throw new IllegalArgumentException("User is not a member of this team");
-        }
-        
-        profile.setTeamId(null);
-        profileRepository.save(profile);
+        userTeamRepository.delete(userTeam);
         
         log.info("User {} removed from team {}", userId, teamId);
     }

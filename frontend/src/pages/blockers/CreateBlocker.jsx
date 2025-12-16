@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { blockerService } from '../../services/blockerService';
+import { userService } from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -9,19 +10,48 @@ import { BLOCKER_SEVERITY } from '../../utils/constants';
 import { X, Upload, Image as ImageIcon, Video } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const TEAM_CODES = [
+  { value: 'DEVOPS', label: 'DevOps' },
+  { value: 'BACKEND', label: 'Backend' },
+  { value: 'FRONTEND', label: 'Frontend' },
+  { value: 'QA', label: 'QA' },
+];
+
 export const CreateBlocker = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     severity: 'MEDIUM',
+    teamCode: '',
     tags: '',
   });
+  const [userTeams, setUserTeams] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadedFileUrls, setUploadedFileUrls] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingTeams, setLoadingTeams] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user?.userId) {
+      fetchUserTeams();
+    }
+  }, [user?.userId]);
+
+  const fetchUserTeams = async () => {
+    try {
+      setLoadingTeams(true);
+      const teams = await userService.getUserTeams(user.userId);
+      setUserTeams(teams || []);
+    } catch (error) {
+      console.error('Failed to fetch user teams:', error);
+      // Don't show error toast - user can still create blocker
+    } finally {
+      setLoadingTeams(false);
+    }
+  };
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -65,6 +95,11 @@ export const CreateBlocker = () => {
     e.preventDefault();
     if (!user?.userId) {
       toast.error('User not authenticated');
+      return;
+    }
+
+    if (!formData.teamCode) {
+      toast.error('Please select a team');
       return;
     }
 
@@ -123,6 +158,14 @@ export const CreateBlocker = () => {
                 value: severity,
                 label: severity,
               }))}
+            />
+            <Select
+              label="Team *"
+              value={formData.teamCode}
+              onChange={(e) => setFormData({ ...formData, teamCode: e.target.value })}
+              options={TEAM_CODES}
+              required
+              disabled={loadingTeams}
             />
             <Input
               label="Tags (comma-separated)"

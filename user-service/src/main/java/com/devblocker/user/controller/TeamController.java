@@ -87,5 +87,19 @@ public class TeamController {
         teamService.removeMemberFromTeam(teamId, userId);
         return ResponseEntity.noContent().build();
     }
+    
+    @GetMapping("/code/{teamCode}")
+    @Operation(summary = "Get team by code", description = "Retrieves a team by its team code")
+    public ResponseEntity<TeamResponse> getTeamByCode(@PathVariable com.devblocker.user.model.TeamCode teamCode) {
+        TeamResponse response = teamService.getTeamByCode(teamCode);
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/code/{teamCode}/members")
+    @Operation(summary = "Get team members by code", description = "Retrieves all members of a team by team code")
+    public ResponseEntity<TeamMemberResponse> getTeamMembersByCode(@PathVariable com.devblocker.user.model.TeamCode teamCode) {
+        TeamMemberResponse response = teamService.getTeamMembersByCode(teamCode);
+        return ResponseEntity.ok(response);
+    }
 }
 

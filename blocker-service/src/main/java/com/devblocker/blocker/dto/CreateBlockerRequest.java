@@ -26,6 +26,9 @@ public class CreateBlockerRequest {
     
     private UUID teamId;
     
+    @NotBlank(message = "Team code is required")
+    private String teamCode;
+    
     private List<String> tags;
     
     private List<String> mediaUrls;
