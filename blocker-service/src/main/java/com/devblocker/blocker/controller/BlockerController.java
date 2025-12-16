@@ -46,19 +46,21 @@ public class BlockerController {
     }
     
     @GetMapping
-    @Operation(summary = "Get blockers", description = "Retrieves blockers with filtering and pagination")
+    @Operation(summary = "Get blockers", description = "Retrieves blockers with filtering and pagination. Team blockers are prioritized for team members.")
     public ResponseEntity<PageResponse<BlockerResponse>> getBlockers(
             @RequestParam(required = false) BlockerStatus status,
             @RequestParam(required = false) Severity severity,
             @RequestParam(required = false) UUID createdBy,
             @RequestParam(required = false) UUID assignedTo,
             @RequestParam(required = false) UUID teamId,
+            @RequestParam(required = false) String teamCode,
             @RequestParam(required = false) String tag,
+            @RequestParam(required = false) UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         
         PageResponse<BlockerResponse> response = blockerService.getAllBlockers(
-                status, severity, createdBy, assignedTo, teamId, tag, page, size);
+                status, severity, createdBy, assignedTo, teamId, teamCode, tag, userId, page, size);
         return ResponseEntity.ok(response);
     }
     

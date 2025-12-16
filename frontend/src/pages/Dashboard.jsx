@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { blockerService } from '../services/blockerService';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { Select } from '../components/ui/Input';
 import { STATUS_COLORS, SEVERITY_COLORS } from '../utils/constants';
 import { formatRelativeTime } from '../utils/format';
 import { PlusCircle, AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const TEAM_FILTER_OPTIONS = [
+  { value: '', label: 'All Blockers' },
+  { value: 'my-teams', label: 'My Team Blockers' },
+];
 
 export const Dashboard = () => {
   const [blockers, setBlockers] = useState([]);
@@ -18,16 +25,27 @@ export const Dashboard = () => {
     resolved: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [teamFilter, setTeamFilter] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchBlockers();
-  }, []);
+  }, [teamFilter]);
 
   const fetchBlockers = async () => {
     try {
       setLoading(true);
-      // Fetch more blockers to get enough unsolved ones after filtering
-      const response = await blockerService.getBlockers({ page: 0, size: 20, sort: 'createdAt,desc' });
+      const params = { 
+        page: 0, 
+        size: 20,
+      };
+      
+      // If filtering by my teams, pass userId for priority sorting
+      if (teamFilter === 'my-teams' && user?.userId) {
+        params.userId = user.userId;
+      }
+      
+      const response = await blockerService.getBlockers(params);
       const allBlockers = response.content || [];
       
       // Filter out RESOLVED and CLOSED blockers - only show OPEN and IN_PROGRESS (unsolved)
@@ -120,7 +138,15 @@ export const Dashboard = () => {
       {/* Recent Blockers */}
       <Card>
         <CardHeader>
-          <h2 className="text-xl font-semibold">Recent Blockers</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Recent Blockers</h2>
+            <Select
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              options={TEAM_FILTER_OPTIONS}
+              className="w-48"
+            />
+          </div>
         </CardHeader>
         <CardBody>
           {blockers.length === 0 ? (
@@ -151,6 +177,14 @@ export const Dashboard = () => {
                         <span>{formatRelativeTime(blocker.createdAt)}</span>
                         <span>•</span>
                         <span>Created by {blocker.createdBy || 'Unknown'}</span>
+                        {blocker.teamCode && (
+                          <>
+                            <span>•</span>
+                            <Badge variant="default" className="text-xs">
+                              {blocker.teamCode}
+                            </Badge>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 ml-4">

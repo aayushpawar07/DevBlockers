@@ -50,6 +50,9 @@ public class Blocker {
     @Column(name = "team_id")
     private UUID teamId;
     
+    @Column(name = "team_code", nullable = false)
+    private String teamCode;
+    
     @Column(name = "best_solution_id")
     private UUID bestSolutionId;
     

@@ -37,13 +37,55 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
            "(:createdBy IS NULL OR b.createdBy = :createdBy) AND " +
            "(:assignedTo IS NULL OR b.assignedTo = :assignedTo) AND " +
            "(:teamId IS NULL OR b.teamId = :teamId) AND " +
-           "(:tag IS NULL OR :tag MEMBER OF b.tags)")
+           "(:teamCode IS NULL OR b.teamCode = :teamCode) AND " +
+           "(:tag IS NULL OR :tag MEMBER OF b.tags) " +
+           "ORDER BY " +
+           "CASE WHEN (:userTeamCodes IS NOT NULL AND SIZE(:userTeamCodes) > 0 AND b.teamCode IN :userTeamCodes) THEN 0 ELSE 1 END, " +
+           "CASE b.severity " +
+           "  WHEN 'CRITICAL' THEN 1 " +
+           "  WHEN 'HIGH' THEN 2 " +
+           "  WHEN 'MEDIUM' THEN 3 " +
+           "  WHEN 'LOW' THEN 4 " +
+           "  WHEN 'TRIVIAL' THEN 5 " +
+           "  ELSE 6 " +
+           "END, " +
+           "b.createdAt ASC")
     Page<Blocker> findWithFilters(
             @Param("status") BlockerStatus status,
             @Param("severity") Severity severity,
             @Param("createdBy") UUID createdBy,
             @Param("assignedTo") UUID assignedTo,
             @Param("teamId") UUID teamId,
+            @Param("teamCode") String teamCode,
+            @Param("tag") String tag,
+            @Param("userTeamCodes") List<String> userTeamCodes,
+            Pageable pageable);
+    
+    @Query("SELECT b FROM Blocker b WHERE " +
+           "(:status IS NULL OR b.status = :status) AND " +
+           "(:severity IS NULL OR b.severity = :severity) AND " +
+           "(:createdBy IS NULL OR b.createdBy = :createdBy) AND " +
+           "(:assignedTo IS NULL OR b.assignedTo = :assignedTo) AND " +
+           "(:teamId IS NULL OR b.teamId = :teamId) AND " +
+           "(:teamCode IS NULL OR b.teamCode = :teamCode) AND " +
+           "(:tag IS NULL OR :tag MEMBER OF b.tags) " +
+           "ORDER BY " +
+           "CASE b.severity " +
+           "  WHEN 'CRITICAL' THEN 1 " +
+           "  WHEN 'HIGH' THEN 2 " +
+           "  WHEN 'MEDIUM' THEN 3 " +
+           "  WHEN 'LOW' THEN 4 " +
+           "  WHEN 'TRIVIAL' THEN 5 " +
+           "  ELSE 6 " +
+           "END, " +
+           "b.createdAt ASC")
+    Page<Blocker> findWithFiltersNoPriority(
+            @Param("status") BlockerStatus status,
+            @Param("severity") Severity severity,
+            @Param("createdBy") UUID createdBy,
+            @Param("assignedTo") UUID assignedTo,
+            @Param("teamId") UUID teamId,
+            @Param("teamCode") String teamCode,
             @Param("tag") String tag,
             Pageable pageable);
     

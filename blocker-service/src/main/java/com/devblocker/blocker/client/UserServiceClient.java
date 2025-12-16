@@ -9,6 +9,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -146,6 +147,42 @@ public class UserServiceClient {
         }
     }
     
+    /**
+     * Get user team codes
+     * 
+     * @param userId User ID
+     * @param authToken JWT token for authentication (optional)
+     * @return List of team codes the user belongs to, or empty list if not found
+     */
+    public List<String> getUserTeamCodes(UUID userId, String authToken) {
+        try {
+            List<TeamResponse> teams = webClient.get()
+                    .uri(userServiceUrl + "/api/v1/users/{id}/teams", userId)
+                    .headers(headers -> {
+                        if (authToken != null && !authToken.isEmpty()) {
+                            headers.setBearerAuth(authToken);
+                        }
+                    })
+                    .retrieve()
+                    .bodyToFlux(TeamResponse.class)
+                    .collectList()
+                    .timeout(Duration.ofSeconds(5))
+                    .block();
+            
+            if (teams == null) {
+                return new java.util.ArrayList<>();
+            }
+            
+            return teams.stream()
+                    .map(team -> team.getTeamCode() != null ? team.getTeamCode().name() : null)
+                    .filter(code -> code != null)
+                    .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            log.error("Failed to fetch user team codes for user: {}", userId, e);
+            return new java.util.ArrayList<>();
+        }
+    }
+    
     // Inner DTOs matching User Service responses
     @lombok.Data
     @lombok.NoArgsConstructor
@@ -173,6 +210,24 @@ public class UserServiceClient {
         private Integer points;
         private String reason;
         private String source;
+    }
+    
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class TeamResponse {
+        private UUID teamId;
+        private String name;
+        private TeamCode teamCode;
+        private Integer memberCount;
+        private java.time.LocalDateTime createdAt;
+    }
+    
+    public enum TeamCode {
+        DEVOPS,
+        BACKEND,
+        FRONTEND,
+        QA
     }
 }
 
