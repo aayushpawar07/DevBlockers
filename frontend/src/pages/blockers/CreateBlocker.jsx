@@ -70,12 +70,39 @@ export const CreateBlocker = () => {
 
     setLoading(true);
     try {
-      console.log('Creating blocker with mediaUrls:', uploadedFileUrls);
+      // Upload any selected files that haven't been uploaded yet
+      let finalMediaUrls = [...uploadedFileUrls];
+      
+      if (selectedFiles.length > 0) {
+        console.log('Auto-uploading files before creating blocker:', selectedFiles.map(f => f.name));
+        try {
+          const uploadResponse = await blockerService.uploadFiles(selectedFiles);
+          console.log('Auto-upload response:', uploadResponse);
+          if (uploadResponse?.fileUrls && uploadResponse.fileUrls.length > 0) {
+            finalMediaUrls = [...finalMediaUrls, ...uploadResponse.fileUrls];
+            console.log('Final mediaUrls after auto-upload:', finalMediaUrls);
+            toast.success(`${uploadResponse.fileUrls.length} file(s) uploaded successfully`);
+          } else {
+            console.warn('Upload response missing fileUrls:', uploadResponse);
+            toast.error('Files uploaded but no URLs returned. Please try again.');
+            setLoading(false);
+            return;
+          }
+        } catch (uploadError) {
+          console.error('Error auto-uploading files:', uploadError);
+          const errorMessage = uploadError.response?.data?.message || uploadError.message || 'Failed to upload files';
+          toast.error(`Failed to upload files: ${errorMessage}. Please try uploading them manually.`);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      console.log('Creating blocker with mediaUrls:', finalMediaUrls);
       const blocker = await blockerService.createBlocker({
         ...formData,
         createdBy: user.userId,
         tags: formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
-        mediaUrls: uploadedFileUrls,
+        mediaUrls: finalMediaUrls,
       });
       console.log('Blocker created:', blocker);
       console.log('Created blocker mediaUrls:', blocker.mediaUrls);

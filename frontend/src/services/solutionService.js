@@ -39,11 +39,8 @@ export const solutionService = {
     Array.from(files).forEach((file) => {
       formData.append('files', file);
     });
-    const response = await solutionApi.post('/solutions/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type header - let axios/browser set it with boundary
+    const response = await solutionApi.post('/solutions/upload', formData);
     return response.data;
   },
 
