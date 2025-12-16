@@ -26,6 +26,7 @@ public class BlockerResponse {
     private UUID teamId;
     private UUID bestSolutionId;
     private List<String> tags;
+    private List<String> mediaUrls;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime resolvedAt;

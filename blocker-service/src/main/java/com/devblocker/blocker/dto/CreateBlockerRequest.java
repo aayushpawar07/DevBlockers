@@ -27,5 +27,7 @@ public class CreateBlockerRequest {
     private UUID teamId;
     
     private List<String> tags;
+    
+    private List<String> mediaUrls;
 }
 

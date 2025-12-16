@@ -59,6 +59,12 @@ public class Blocker {
     @Builder.Default
     private List<String> tags = new ArrayList<>();
     
+    @ElementCollection
+    @CollectionTable(name = "blocker_media", joinColumns = @JoinColumn(name = "blocker_id"))
+    @Column(name = "media_url")
+    @Builder.Default
+    private List<String> mediaUrls = new ArrayList<>();
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

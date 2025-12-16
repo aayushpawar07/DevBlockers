@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -34,6 +36,12 @@ public class Solution {
     
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
+    
+    @ElementCollection
+    @CollectionTable(name = "solution_media", joinColumns = @JoinColumn(name = "solution_id"))
+    @Column(name = "media_url")
+    @Builder.Default
+    private List<String> mediaUrls = new ArrayList<>();
     
     @Column(name = "upvotes", nullable = false)
     @Builder.Default
