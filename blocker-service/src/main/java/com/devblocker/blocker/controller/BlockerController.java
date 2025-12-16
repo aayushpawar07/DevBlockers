@@ -14,8 +14,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.devblocker.blocker.model.StoredFile;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -23,7 +24,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,44 +112,26 @@ public class BlockerController {
         }
     }
     
-    @GetMapping("/files/{filename:.+}")
-    @Operation(summary = "Get file", description = "Retrieves an uploaded file")
-    public ResponseEntity<Resource> getFile(@PathVariable String filename) {
+    @GetMapping("/files/{fileId}")
+    @Operation(summary = "Get file", description = "Retrieves an uploaded file from database")
+    public ResponseEntity<Resource> getFile(@PathVariable UUID fileId) {
         try {
-            Path filePath = fileStorageService.loadFile(filename);
-            Resource resource = new UrlResource(filePath.toUri());
+            StoredFile storedFile = fileStorageService.loadFile(fileId);
             
-            if (resource.exists() && resource.isReadable()) {
-                String contentType = determineContentType(filename);
-                return ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                        .body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
+            ByteArrayResource resource = new ByteArrayResource(storedFile.getFileData());
+            
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(storedFile.getContentType()))
+                    .contentLength(storedFile.getFileSize())
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + storedFile.getOriginalFilename() + "\"")
+                    .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                    .header(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
+                    .header(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "3600")
+                    .body(resource);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
     }
-    
-    private String determineContentType(String filename) {
-        int lastDotIndex = filename.lastIndexOf(".");
-        if (lastDotIndex == -1 || lastDotIndex == filename.length() - 1) {
-            return "application/octet-stream";
-        }
-        String extension = filename.substring(lastDotIndex + 1).toLowerCase();
-        return switch (extension) {
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "png" -> "image/png";
-            case "gif" -> "image/gif";
-            case "webp" -> "image/webp";
-            case "mp4" -> "video/mp4";
-            case "webm" -> "video/webm";
-            case "mov" -> "video/quicktime";
-            case "avi" -> "video/x-msvideo";
-            default -> "application/octet-stream";
-        };
-    }
 }
+
 

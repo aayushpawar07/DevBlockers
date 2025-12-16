@@ -1,24 +1,24 @@
 package com.devblocker.blocker.service;
 
+import com.devblocker.blocker.model.StoredFile;
+import com.devblocker.blocker.repository.StoredFileRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class FileStorageService {
     
-    private final Path fileStorageLocation;
+    private final StoredFileRepository storedFileRepository;
+    
     private static final long MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     private static final List<String> ALLOWED_IMAGE_TYPES = List.of(
             "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"
@@ -26,17 +26,6 @@ public class FileStorageService {
     private static final List<String> ALLOWED_VIDEO_TYPES = List.of(
             "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"
     );
-    
-    public FileStorageService(@Value("${file.upload-dir:uploads/blockers}") String uploadDir) {
-        this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.fileStorageLocation);
-            log.info("File storage location: {}", this.fileStorageLocation);
-        } catch (IOException e) {
-            log.error("Could not create the directory where the uploaded files will be stored.", e);
-            throw new RuntimeException("Could not create upload directory", e);
-        }
-    }
     
     public List<String> storeFiles(MultipartFile[] files) {
         List<String> fileUrls = new ArrayList<>();
@@ -74,19 +63,32 @@ public class FileStorageService {
         try {
             // Generate unique filename
             String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null) {
+                originalFilename = "file";
+            }
             String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
+            if (originalFilename.contains(".")) {
                 extension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
             String filename = UUID.randomUUID().toString() + extension;
             
-            // Copy file to target location
-            Path targetLocation = this.fileStorageLocation.resolve(filename);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            // Read file data into byte array
+            byte[] fileData = file.getBytes();
             
-            // Return URL path (relative to serve from static resources)
-            String fileUrl = "/api/v1/blockers/files/" + filename;
-            log.info("File stored successfully: {}", fileUrl);
+            // Store file in database
+            StoredFile storedFile = StoredFile.builder()
+                    .filename(filename)
+                    .originalFilename(originalFilename)
+                    .contentType(contentType)
+                    .fileSize(file.getSize())
+                    .fileData(fileData)
+                    .build();
+            
+            storedFile = storedFileRepository.save(storedFile);
+            
+            // Return URL path using file ID
+            String fileUrl = "/api/v1/blockers/files/" + storedFile.getFileId();
+            log.info("File stored successfully in database: {} (ID: {})", fileUrl, storedFile.getFileId());
             
             return fileUrl;
         } catch (IOException e) {
@@ -95,8 +97,14 @@ public class FileStorageService {
         }
     }
     
-    public Path loadFile(String filename) {
-        return fileStorageLocation.resolve(filename).normalize();
+    public StoredFile loadFile(UUID fileId) {
+        return storedFileRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("File not found with ID: " + fileId));
+    }
+    
+    public StoredFile loadFileByFilename(String filename) {
+        return storedFileRepository.findByFilename(filename)
+                .orElseThrow(() -> new RuntimeException("File not found with filename: " + filename));
     }
 }
 

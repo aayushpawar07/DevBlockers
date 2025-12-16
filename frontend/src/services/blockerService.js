@@ -57,9 +57,9 @@ export const blockerService = {
     if (url.startsWith('http')) {
       return url;
     }
-    // Extract filename from path if needed
-    const filename = url.includes('/') ? url.split('/').pop() : url;
-    return `${import.meta.env.VITE_BLOCKER_SERVICE_URL || 'http://localhost:8083'}/api/v1/blockers/files/${filename}`;
+    // Extract file ID (UUID) from path - format is /api/v1/blockers/files/{fileId}
+    const fileId = url.includes('/') ? url.split('/').pop() : url;
+    return `${import.meta.env.VITE_BLOCKER_SERVICE_URL || 'http://localhost:8083'}/api/v1/blockers/files/${fileId}`;
   },
 };
 
