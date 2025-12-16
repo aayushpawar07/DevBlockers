@@ -26,11 +26,15 @@ export const Dashboard = () => {
   const fetchBlockers = async () => {
     try {
       setLoading(true);
-      const response = await blockerService.getBlockers({ page: 0, size: 10, sort: 'createdAt,desc' });
-      setBlockers(response.content || []);
-      
-      // Calculate stats
+      // Fetch more blockers to get enough unsolved ones after filtering
+      const response = await blockerService.getBlockers({ page: 0, size: 20, sort: 'createdAt,desc' });
       const allBlockers = response.content || [];
+      
+      // Filter out RESOLVED and CLOSED blockers - only show OPEN and IN_PROGRESS (unsolved)
+      const unsolvedBlockers = allBlockers.filter(b => b.status !== 'RESOLVED' && b.status !== 'CLOSED').slice(0, 10);
+      setBlockers(unsolvedBlockers);
+      
+      // Calculate stats from all blockers (for stats display)
       setStats({
         total: allBlockers.length,
         open: allBlockers.filter(b => b.status === 'OPEN').length,

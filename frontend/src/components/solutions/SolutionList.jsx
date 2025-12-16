@@ -6,7 +6,6 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { formatRelativeTime } from '../../utils/format';
 import { ThumbsUp, CheckCircle, Award, Image as ImageIcon } from 'lucide-react';
-import { solutionService } from '../../services/solutionService';
 import toast from 'react-hot-toast';
 
 export const SolutionList = ({ blockerId, blocker, onUpdate }) => {
@@ -24,6 +23,15 @@ export const SolutionList = ({ blockerId, blocker, onUpdate }) => {
     try {
       setLoading(true);
       const data = await solutionService.getSolutions(blockerId);
+      // Debug: Log solutions to check mediaUrls
+      console.log('Fetched solutions:', data);
+      data?.forEach((sol, idx) => {
+        console.log(`Solution ${idx}:`, {
+          solutionId: sol.solutionId,
+          mediaUrls: sol.mediaUrls,
+          mediaUrlsLength: sol.mediaUrls?.length,
+        });
+      });
       // Sort by upvotes descending, then by accepted status
       const sorted = (data || []).sort((a, b) => {
         if (a.accepted && !b.accepted) return -1;
@@ -147,39 +155,50 @@ export const SolutionList = ({ blockerId, blocker, onUpdate }) => {
             <p className="text-gray-900 whitespace-pre-wrap mb-4">{solution.content}</p>
             
             {/* Solution Media */}
-            {solution.mediaUrls && solution.mediaUrls.length > 0 && (
+            {solution.mediaUrls && solution.mediaUrls.length > 0 ? (
               <div className="mt-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {solution.mediaUrls.map((url, index) => {
-                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-                    const isVideo = /\.(mp4|webm|mov|avi)$/i.test(url);
-                    const fullUrl = url.startsWith('http') ? url : solutionService.getFileUrl(url.split('/').pop());
+                    // Extract fileId (UUID) from URL
+                    const fileId = url.includes('/') ? url.split('/').pop() : url;
+                    const fullUrl = url.startsWith('http') ? url : solutionService.getFileUrl(fileId);
                     
+                    // Try to determine type from URL or use generic media display
+                    // Since we're using UUIDs, we'll try both image and video and let the browser handle it
                     return (
                       <div key={index} className="relative">
-                        {isImage ? (
-                          <img
-                            src={fullUrl}
-                            alt={`Solution media ${index + 1}`}
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
-                          />
-                        ) : isVideo ? (
-                          <video
-                            src={fullUrl}
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
-                            controls
-                          />
-                        ) : (
-                          <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                            <ImageIcon className="w-8 h-8 text-gray-400" />
-                          </div>
-                        )}
+                        <img
+                          src={fullUrl}
+                          alt={`Solution media ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                          onError={(e) => {
+                            // If image fails, try as video
+                            const video = document.createElement('video');
+                            video.src = fullUrl;
+                            video.className = "w-full h-48 object-cover rounded-lg border border-gray-200";
+                            video.controls = true;
+                            video.onerror = () => {
+                              console.error(`Failed to load solution media: ${fullUrl}`);
+                              e.target.parentElement.innerHTML = `
+                                <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                  <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                  </svg>
+                                </div>
+                              `;
+                            };
+                            e.target.parentElement.replaceChild(video, e.target);
+                          }}
+                          onLoad={() => {
+                            console.log(`Successfully loaded solution image: ${fullUrl}`);
+                          }}
+                        />
                       </div>
                     );
                   })}
                 </div>
               </div>
-            )}
+            ) : null}
           </CardBody>
         </Card>
       ))}

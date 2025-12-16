@@ -36,6 +36,9 @@ export const BlockerDetail = () => {
     try {
       setLoading(true);
       const data = await blockerService.getBlocker(id);
+      console.log('Fetched blocker:', data);
+      console.log('Blocker mediaUrls:', data.mediaUrls);
+      console.log('MediaUrls length:', data.mediaUrls?.length);
       setBlocker(data);
     } catch (error) {
       toast.error('Failed to fetch blocker');
@@ -60,13 +63,20 @@ export const BlockerDetail = () => {
 
     setUploadingSolutionFiles(true);
     try {
+      console.log('Uploading solution files:', selectedSolutionFiles.map(f => f.name));
       const response = await solutionService.uploadFiles(selectedSolutionFiles);
-      setUploadedSolutionFileUrls((prev) => [...prev, ...response.fileUrls]);
+      console.log('File upload response:', response);
+      console.log('Received fileUrls:', response.fileUrls);
+      setUploadedSolutionFileUrls((prev) => {
+        const newUrls = [...prev, ...response.fileUrls];
+        console.log('Updated uploadedSolutionFileUrls:', newUrls);
+        return newUrls;
+      });
       setSelectedSolutionFiles([]);
       toast.success('Files uploaded successfully!');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to upload files');
-      console.error(error);
+      console.error('Error uploading solution files:', error);
     } finally {
       setUploadingSolutionFiles(false);
     }
@@ -93,7 +103,29 @@ export const BlockerDetail = () => {
 
     setSubmittingSolution(true);
     try {
-      await solutionService.addSolution(id, solutionContent, user.userId, uploadedSolutionFileUrls);
+      // Upload any selected files that haven't been uploaded yet
+      let finalMediaUrls = [...uploadedSolutionFileUrls];
+      
+      if (selectedSolutionFiles.length > 0) {
+        console.log('Auto-uploading solution files before submit:', selectedSolutionFiles.map(f => f.name));
+        try {
+          const uploadResponse = await solutionService.uploadFiles(selectedSolutionFiles);
+          console.log('Auto-upload response:', uploadResponse);
+          if (uploadResponse?.fileUrls && uploadResponse.fileUrls.length > 0) {
+            finalMediaUrls = [...finalMediaUrls, ...uploadResponse.fileUrls];
+            console.log('Final mediaUrls after auto-upload:', finalMediaUrls);
+          }
+        } catch (uploadError) {
+          console.error('Error auto-uploading files:', uploadError);
+          toast.error('Failed to upload files. Please try uploading them manually.');
+          return;
+        }
+      }
+      
+      console.log('Submitting solution with mediaUrls:', finalMediaUrls);
+      const result = await solutionService.addSolution(id, solutionContent, user.userId, finalMediaUrls);
+      console.log('Solution created:', result);
+      console.log('Solution mediaUrls in response:', result.mediaUrls);
       toast.success('Solution added successfully!');
       setSolutionContent('');
       setUploadedSolutionFileUrls([]);
@@ -102,7 +134,7 @@ export const BlockerDetail = () => {
       fetchBlocker(); // Refresh to show new solution
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to add solution');
-      console.error(error);
+      console.error('Error creating solution:', error);
     } finally {
       setSubmittingSolution(false);
     }
@@ -163,37 +195,51 @@ export const BlockerDetail = () => {
             </div>
             
             {/* Blocker Media */}
-            {blocker.mediaUrls && blocker.mediaUrls.length > 0 && (
+            {blocker.mediaUrls && blocker.mediaUrls.length > 0 ? (
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Media</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {blocker.mediaUrls.map((url, index) => {
-                    const fullUrl = url.startsWith('http') ? url : blockerService.getFileUrl(url.split('/').pop());
+                    // Extract fileId (UUID) from URL
+                    const fileId = url.includes('/') ? url.split('/').pop() : url;
+                    const fullUrl = url.startsWith('http') ? url : blockerService.getFileUrl(fileId);
+                    
+                    // Try to determine type from URL or use generic media display
+                    // Since we're using UUIDs, we'll try both image and video and let the browser handle it
                     return (
                       <div key={index} className="relative">
-                        {isImage(url) ? (
-                          <img
-                            src={fullUrl}
-                            alt={`Blocker media ${index + 1}`}
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
-                          />
-                        ) : isVideo(url) ? (
-                          <video
-                            src={fullUrl}
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
-                            controls
-                          />
-                        ) : (
-                          <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                            <ImageIcon className="w-8 h-8 text-gray-400" />
-                          </div>
-                        )}
+                        <img
+                          src={fullUrl}
+                          alt={`Blocker media ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                          onError={(e) => {
+                            // If image fails, try as video
+                            const video = document.createElement('video');
+                            video.src = fullUrl;
+                            video.className = "w-full h-48 object-cover rounded-lg border border-gray-200";
+                            video.controls = true;
+                            video.onerror = () => {
+                              console.error(`Failed to load blocker media: ${fullUrl}`);
+                              e.target.parentElement.innerHTML = `
+                                <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                  <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                  </svg>
+                                </div>
+                              `;
+                            };
+                            e.target.parentElement.replaceChild(video, e.target);
+                          }}
+                          onLoad={() => {
+                            console.log(`Successfully loaded blocker image: ${fullUrl}`);
+                          }}
+                        />
                       </div>
                     );
                   })}
                 </div>
               </div>
-            )}
+            ) : null}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
               <div>
                 <p className="text-sm text-gray-500">Created</p>

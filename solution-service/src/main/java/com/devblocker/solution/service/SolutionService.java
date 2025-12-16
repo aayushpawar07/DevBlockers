@@ -40,16 +40,35 @@ public class SolutionService {
         // Check if user already has a solution for this blocker (optional business rule)
         // For now, allow multiple solutions per user
         
+        // Ensure mediaUrls list is properly initialized
+        List<String> mediaUrlsList = request.getMediaUrls() != null && !request.getMediaUrls().isEmpty() 
+                ? new java.util.ArrayList<>(request.getMediaUrls()) 
+                : new java.util.ArrayList<>();
+        
+        log.info("Creating solution with mediaUrls: {} (size: {})", mediaUrlsList, mediaUrlsList.size());
+        
         Solution solution = Solution.builder()
                 .blockerId(blockerId)
                 .userId(request.getUserId())
                 .content(request.getContent())
-                .mediaUrls(request.getMediaUrls() != null ? request.getMediaUrls() : new java.util.ArrayList<>())
+                .mediaUrls(mediaUrlsList)
                 .upvotes(0)
                 .accepted(false)
                 .build();
         
+        // Ensure mediaUrls list is properly initialized (defensive check for JPA @ElementCollection with Lombok Builder)
+        if (solution.getMediaUrls() == null) {
+            solution.setMediaUrls(new java.util.ArrayList<>());
+        }
+        
         final Solution savedSolution = solutionRepository.save(solution);
+        
+        // Flush to ensure mediaUrls are persisted immediately
+        solutionRepository.flush();
+        
+        log.info("Solution saved with ID: {}, mediaUrls: {} (size: {})", 
+                savedSolution.getSolutionId(), savedSolution.getMediaUrls(), 
+                savedSolution.getMediaUrls() != null ? savedSolution.getMediaUrls().size() : 0);
         
         // Publish event after transaction commit
         TransactionSynchronizationManager.registerSynchronization(
@@ -61,13 +80,19 @@ public class SolutionService {
                 }
         );
         
-        log.info("Solution created: {} for blocker: {}", solution.getSolutionId(), blockerId);
+        log.info("Solution created: {} for blocker: {}", savedSolution.getSolutionId(), blockerId);
         
-        return mapToResponse(solution);
+        return mapToResponse(savedSolution);
     }
     
     public List<SolutionResponse> getSolutionsByBlocker(UUID blockerId) {
         List<Solution> solutions = solutionRepository.findByBlockerIdOrderByUpvotesDescCreatedAtAsc(blockerId);
+        log.info("Retrieved {} solutions for blocker: {}", solutions.size(), blockerId);
+        solutions.forEach(sol -> {
+            log.info("Solution ID: {}, mediaUrls: {} (size: {})", 
+                    sol.getSolutionId(), sol.getMediaUrls(), 
+                    sol.getMediaUrls() != null ? sol.getMediaUrls().size() : 0);
+        });
         return solutions.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

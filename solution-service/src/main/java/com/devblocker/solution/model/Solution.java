@@ -37,7 +37,7 @@ public class Solution {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
     
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "solution_media", joinColumns = @JoinColumn(name = "solution_id"))
     @Column(name = "media_url")
     @Builder.Default

@@ -70,17 +70,20 @@ export const CreateBlocker = () => {
 
     setLoading(true);
     try {
+      console.log('Creating blocker with mediaUrls:', uploadedFileUrls);
       const blocker = await blockerService.createBlocker({
         ...formData,
         createdBy: user.userId,
         tags: formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
         mediaUrls: uploadedFileUrls,
       });
+      console.log('Blocker created:', blocker);
+      console.log('Created blocker mediaUrls:', blocker.mediaUrls);
       toast.success('Blocker created successfully!');
       navigate(`/blockers/${blocker.blockerId}`);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create blocker');
-      console.error(error);
+      console.error('Error creating blocker:', error);
     } finally {
       setLoading(false);
     }
