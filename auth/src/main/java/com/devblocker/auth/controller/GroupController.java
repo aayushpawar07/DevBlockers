@@ -64,6 +64,10 @@ public class GroupController {
             @PathVariable UUID orgId,
             Authentication authentication) {
         
+        if (authentication == null) {
+            throw new IllegalArgumentException("Authentication required");
+        }
+        
         // Verify user belongs to the organization
         User user = userService.getUserEntityByEmail(authentication.getName());
         

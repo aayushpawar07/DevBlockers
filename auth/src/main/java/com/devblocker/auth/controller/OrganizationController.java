@@ -81,6 +81,10 @@ public class OrganizationController {
             @PathVariable UUID orgId,
             Authentication authentication) {
         
+        if (authentication == null) {
+            throw new IllegalArgumentException("Authentication required");
+        }
+        
         // Verify user belongs to the organization
         User user = userService.getUserEntityByEmail(authentication.getName());
         
@@ -103,6 +107,10 @@ public class OrganizationController {
     public ResponseEntity<OrganizationResponse> getOrganization(
             @PathVariable UUID orgId,
             Authentication authentication) {
+        
+        if (authentication == null) {
+            throw new IllegalArgumentException("Authentication required");
+        }
         
         // Verify user belongs to the organization
         User user = userService.getUserEntityByEmail(authentication.getName());
