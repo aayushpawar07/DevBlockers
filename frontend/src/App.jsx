@@ -2,9 +2,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Landing } from './pages/Landing';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { RegisterOrganization } from './pages/RegisterOrganization';
 import { Dashboard } from './pages/Dashboard';
+import { OrganizationDashboard } from './pages/organization/OrganizationDashboard';
+import { EmployeeDashboard } from './pages/organization/EmployeeDashboard';
 import { BlockerList } from './pages/blockers/BlockerList';
 import { BlockerDetail } from './pages/blockers/BlockerDetail';
 import { CreateBlocker } from './pages/blockers/CreateBlocker';
@@ -16,10 +20,12 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/register-organization" element={<RegisterOrganization />} />
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Layout>
@@ -74,6 +80,26 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Profile />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organization/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <OrganizationDashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employee/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmployeeDashboard />
                 </Layout>
               </ProtectedRoute>
             }

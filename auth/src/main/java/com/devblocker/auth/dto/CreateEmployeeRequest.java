@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-public class RegisterRequest {
+public class CreateEmployeeRequest {
     
     @NotBlank(message = "Name is required")
     private String name;

@@ -18,11 +18,24 @@ const createApiClient = (baseURL) => {
     },
   });
 
-  // Add auth token to requests
+  // Add auth token and organization headers to requests
   client.interceptors.request.use((config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      
+      // Extract org info from JWT token
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.orgId) {
+          config.headers['X-User-Org-Id'] = payload.orgId;
+        }
+        if (payload.groupIds && Array.isArray(payload.groupIds) && payload.groupIds.length > 0) {
+          config.headers['X-User-Group-Ids'] = payload.groupIds.join(',');
+        }
+      } catch (error) {
+        // Ignore JWT parsing errors
+      }
     }
     // Don't set Content-Type for FormData - let browser set it with boundary
     if (config.data instanceof FormData) {

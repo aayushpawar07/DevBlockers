@@ -8,6 +8,7 @@ import com.devblocker.blocker.dto.UpdateBestSolutionRequest;
 import com.devblocker.blocker.dto.UpdateBlockerRequest;
 import com.devblocker.blocker.model.Blocker;
 import com.devblocker.blocker.model.BlockerStatus;
+import com.devblocker.blocker.model.BlockerVisibility;
 import com.devblocker.blocker.model.Severity;
 import com.devblocker.blocker.repository.BlockerRepository;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,9 @@ public class BlockerService {
                 .createdBy(request.getCreatedBy())
                 .assignedTo(request.getAssignedTo())
                 .teamId(request.getTeamId())
+                .visibility(request.getVisibility() != null ? request.getVisibility() : BlockerVisibility.PUBLIC)
+                .orgId(request.getOrgId())
+                .groupId(request.getGroupId())
                 .tags(request.getTags() != null ? request.getTags() : new java.util.ArrayList<>())
                 .mediaUrls(request.getMediaUrls() != null ? request.getMediaUrls() : new java.util.ArrayList<>())
                 .build();
@@ -66,11 +70,29 @@ public class BlockerService {
         return mapToBlockerResponse(savedBlocker);
     }
     
-    public BlockerResponse getBlocker(UUID blockerId) {
+    public BlockerResponse getBlocker(UUID blockerId, UUID userOrgId, java.util.List<UUID> userGroupIds) {
         Blocker blocker = blockerRepository.findByBlockerId(blockerId)
                 .orElseThrow(() -> new IllegalArgumentException("Blocker not found: " + blockerId));
         
+        // Check access
+        if (!canAccessBlocker(blocker, userOrgId, userGroupIds)) {
+            throw new IllegalArgumentException("Unauthorized: You don't have access to this blocker");
+        }
+        
         return mapToBlockerResponse(blocker);
+    }
+    
+    private boolean canAccessBlocker(Blocker blocker, UUID userOrgId, java.util.List<UUID> userGroupIds) {
+        if (blocker.getVisibility() == com.devblocker.blocker.model.BlockerVisibility.PUBLIC) {
+            return true;
+        }
+        if (blocker.getVisibility() == com.devblocker.blocker.model.BlockerVisibility.ORG) {
+            return userOrgId != null && userOrgId.equals(blocker.getOrgId());
+        }
+        if (blocker.getVisibility() == com.devblocker.blocker.model.BlockerVisibility.GROUP) {
+            return userGroupIds != null && blocker.getGroupId() != null && userGroupIds.contains(blocker.getGroupId());
+        }
+        return false;
     }
     
     public PageResponse<BlockerResponse> getAllBlockers(
@@ -80,12 +102,14 @@ public class BlockerService {
             UUID assignedTo,
             UUID teamId,
             String tag,
+            UUID userOrgId,
+            java.util.List<UUID> userGroupIds,
             int page,
             int size) {
         
         Pageable pageable = PageRequest.of(page, size);
         Page<Blocker> blockers = blockerRepository.findWithFilters(
-                status, severity, createdBy, assignedTo, teamId, tag, pageable);
+                status, severity, createdBy, assignedTo, teamId, tag, userOrgId, userGroupIds, pageable);
         
         return PageResponse.<BlockerResponse>builder()
                 .content(blockers.getContent().stream()

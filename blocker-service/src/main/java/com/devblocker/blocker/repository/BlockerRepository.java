@@ -37,7 +37,10 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
            "(:createdBy IS NULL OR b.createdBy = :createdBy) AND " +
            "(:assignedTo IS NULL OR b.assignedTo = :assignedTo) AND " +
            "(:teamId IS NULL OR b.teamId = :teamId) AND " +
-           "(:tag IS NULL OR :tag MEMBER OF b.tags)")
+           "(:tag IS NULL OR :tag MEMBER OF b.tags) AND " +
+           "(b.visibility = 'PUBLIC' OR " +
+           " (b.visibility = 'ORG' AND (:userOrgId IS NOT NULL AND b.orgId = :userOrgId)) OR " +
+           " (b.visibility = 'GROUP' AND (:userGroupIds IS NOT NULL AND b.groupId IN :userGroupIds)))")
     Page<Blocker> findWithFilters(
             @Param("status") BlockerStatus status,
             @Param("severity") Severity severity,
@@ -45,6 +48,8 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
             @Param("assignedTo") UUID assignedTo,
             @Param("teamId") UUID teamId,
             @Param("tag") String tag,
+            @Param("userOrgId") UUID userOrgId,
+            @Param("userGroupIds") java.util.List<UUID> userGroupIds,
             Pageable pageable);
     
     @Query("SELECT b FROM Blocker b WHERE " +

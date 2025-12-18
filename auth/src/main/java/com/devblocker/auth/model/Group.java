@@ -11,34 +11,26 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "groups")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class Group {
     
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "user_id")
-    private UUID userId;
+    @Column(name = "group_id")
+    private UUID groupId;
+    
+    @Column(name = "org_id", nullable = false)
+    private UUID orgId;
     
     @Column(nullable = false)
     private String name;
     
-    @Column(nullable = false, unique = true)
-    private String email;
-    
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    @Builder.Default
-    private Role role = Role.USER;
-    
-    @Column(name = "org_id")
-    private UUID orgId;
+    @Column(length = 1000)
+    private String description;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -50,6 +50,17 @@ public class Blocker {
     @Column(name = "team_id")
     private UUID teamId;
     
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private BlockerVisibility visibility = BlockerVisibility.PUBLIC;
+    
+    @Column(name = "org_id")
+    private UUID orgId;
+    
+    @Column(name = "group_id")
+    private UUID groupId;
+    
     @Column(name = "best_solution_id")
     private UUID bestSolutionId;
     
