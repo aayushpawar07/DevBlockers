@@ -81,8 +81,8 @@ public class OrganizationController {
             @PathVariable UUID orgId,
             Authentication authentication) {
         
-        if (authentication == null) {
-            throw new IllegalArgumentException("Authentication required");
+        if (authentication == null || authentication.getName() == null) {
+            throw new IllegalArgumentException("Authentication required. Please login again.");
         }
         
         // Verify user belongs to the organization
@@ -108,8 +108,8 @@ public class OrganizationController {
             @PathVariable UUID orgId,
             Authentication authentication) {
         
-        if (authentication == null) {
-            throw new IllegalArgumentException("Authentication required");
+        if (authentication == null || authentication.getName() == null) {
+            throw new IllegalArgumentException("Authentication required. Please login again.");
         }
         
         // Verify user belongs to the organization
