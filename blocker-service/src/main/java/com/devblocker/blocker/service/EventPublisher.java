@@ -29,13 +29,13 @@ public class EventPublisher {
                     .createdBy(blocker.getCreatedBy().toString())
                     .assignedTo(blocker.getAssignedTo() != null ? blocker.getAssignedTo().toString() : null)
                     .teamId(blocker.getTeamId() != null ? blocker.getTeamId().toString() : null)
-                    .teamCode(blocker.getTeamCode())
+                    .teamCode(null) // Blocker model doesn't have teamCode field
                     .tags(blocker.getTags())
                     .createdAt(blocker.getCreatedAt())
                     .build();
             
             rabbitTemplate.convertAndSend("blocker.events", "blocker.created", event);
-            log.info("Published BlockerCreated event for blocker: {} with teamCode: {}", blocker.getBlockerId(), blocker.getTeamCode());
+            log.info("Published BlockerCreated event for blocker: {}", blocker.getBlockerId());
         } catch (Exception e) {
             log.error("Failed to publish BlockerCreated event for blocker: {}", blocker.getBlockerId(), e);
             // Don't throw - event publishing failure shouldn't break blocker creation

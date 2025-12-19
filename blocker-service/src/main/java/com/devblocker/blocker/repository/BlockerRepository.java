@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,9 +48,9 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
             @Param("createdBy") UUID createdBy,
             @Param("assignedTo") UUID assignedTo,
             @Param("teamId") UUID teamId,
-            @Param("teamCode") String teamCode,
             @Param("tag") String tag,
-            @Param("userTeamCodes") List<String> userTeamCodes,
+            @Param("userOrgId") UUID userOrgId,
+            @Param("userGroupIds") List<UUID> userGroupIds,
             Pageable pageable);
     
     @Query("SELECT b FROM Blocker b WHERE " +
@@ -58,7 +59,6 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
            "(:createdBy IS NULL OR b.createdBy = :createdBy) AND " +
            "(:assignedTo IS NULL OR b.assignedTo = :assignedTo) AND " +
            "(:teamId IS NULL OR b.teamId = :teamId) AND " +
-           "(:teamCode IS NULL OR b.teamCode = :teamCode) AND " +
            "(:tag IS NULL OR :tag MEMBER OF b.tags) " +
            "ORDER BY " +
            "CASE b.severity " +
@@ -76,7 +76,6 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
             @Param("createdBy") UUID createdBy,
             @Param("assignedTo") UUID assignedTo,
             @Param("teamId") UUID teamId,
-            @Param("teamCode") String teamCode,
             @Param("tag") String tag,
             @Param("userOrgId") UUID userOrgId,
             @Param("userGroupIds") java.util.List<UUID> userGroupIds,

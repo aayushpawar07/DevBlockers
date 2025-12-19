@@ -71,7 +71,7 @@ public class BlockerController {
         }
         
         PageResponse<BlockerResponse> response = blockerService.getAllBlockers(
-                status, severity, createdBy, assignedTo, teamId, tag, userOrgId, userGroupIds, page, size);
+                status, severity, createdBy, assignedTo, teamId, teamCode, tag, userOrgId, userGroupIds, page, size);
         return ResponseEntity.ok(response);
     }
     
