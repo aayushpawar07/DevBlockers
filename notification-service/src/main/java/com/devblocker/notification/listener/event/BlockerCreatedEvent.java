@@ -12,6 +12,7 @@ public class BlockerCreatedEvent {
     private String createdBy;
     private String assignedTo;
     private String teamId;
+    private String teamCode;
     private LocalDateTime createdAt;
 }
 

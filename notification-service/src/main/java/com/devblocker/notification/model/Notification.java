@@ -72,6 +72,7 @@ public class Notification {
     
     public enum NotificationType {
         BLOCKER_CREATED,
+        TEAM_BLOCKER_CREATED,
         COMMENT_ADDED,
         SOLUTION_ADDED,
         SOLUTION_ACCEPTED,

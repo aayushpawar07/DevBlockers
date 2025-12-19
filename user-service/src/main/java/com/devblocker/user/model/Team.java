@@ -12,7 +12,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "teams")
+@Table(name = "teams", uniqueConstraints = {
+    @UniqueConstraint(columnNames = "team_code")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -26,6 +28,10 @@ public class Team {
     
     @Column(nullable = false)
     private String name;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "team_code", nullable = false, unique = true)
+    private TeamCode teamCode;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

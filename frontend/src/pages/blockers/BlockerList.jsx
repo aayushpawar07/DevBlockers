@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { blockerService } from '../../services/blockerService';
+import { useAuth } from '../../context/AuthContext';
 import { Card, CardBody } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -10,16 +11,26 @@ import { formatRelativeTime } from '../../utils/format';
 import { PlusCircle, Search, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const TEAM_CODES = [
+  { value: '', label: 'All Teams' },
+  { value: 'DEVOPS', label: 'DevOps' },
+  { value: 'BACKEND', label: 'Backend' },
+  { value: 'FRONTEND', label: 'Frontend' },
+  { value: 'QA', label: 'QA' },
+];
+
 export const BlockerList = () => {
   const [blockers, setBlockers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     status: '',
     severity: '',
+    teamCode: '',
     search: '',
   });
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchBlockers();
@@ -31,11 +42,15 @@ export const BlockerList = () => {
       const params = {
         page,
         size: 20,
-        sort: 'createdAt,desc',
       };
       if (filters.status) params.status = filters.status;
       if (filters.severity) params.severity = filters.severity;
+      if (filters.teamCode) params.teamCode = filters.teamCode;
       if (filters.search) params.search = filters.search;
+      // Pass userId for priority sorting (team blockers first)
+      if (user?.userId) {
+        params.userId = user.userId;
+      }
 
       const response = await blockerService.getBlockers(params);
       setBlockers(response.content || []);
@@ -76,7 +91,7 @@ export const BlockerList = () => {
       {/* Filters */}
       <Card>
         <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
@@ -108,10 +123,15 @@ export const BlockerList = () => {
               value={filters.severity}
               onChange={(e) => handleFilterChange('severity', e.target.value)}
             />
+            <Select
+              options={TEAM_CODES}
+              value={filters.teamCode}
+              onChange={(e) => handleFilterChange('teamCode', e.target.value)}
+            />
             <Button
               variant="secondary"
               onClick={() => {
-                setFilters({ status: '', severity: '', search: '' });
+                setFilters({ status: '', severity: '', teamCode: '', search: '' });
                 setPage(0);
               }}
             >
@@ -156,6 +176,14 @@ export const BlockerList = () => {
                         <span>{formatRelativeTime(blocker.createdAt)}</span>
                         <span>•</span>
                         <span>Created by {blocker.createdBy || 'Unknown'}</span>
+                        {blocker.teamCode && (
+                          <>
+                            <span>•</span>
+                            <Badge variant="default" className="text-xs">
+                              {blocker.teamCode}
+                            </Badge>
+                          </>
+                        )}
                         {blocker.assignedTo && (
                           <>
                             <span>•</span>

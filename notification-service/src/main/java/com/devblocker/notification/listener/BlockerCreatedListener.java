@@ -1,5 +1,6 @@
 package com.devblocker.notification.listener;
 
+import com.devblocker.notification.client.UserServiceClient;
 import com.devblocker.notification.config.RabbitMQConfig;
 import com.devblocker.notification.listener.event.BlockerCreatedEvent;
 import com.devblocker.notification.model.Notification;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -17,6 +19,7 @@ import java.util.UUID;
 public class BlockerCreatedListener {
     
     private final NotificationService notificationService;
+    private final UserServiceClient userServiceClient;
     
     @RabbitListener(queues = RabbitMQConfig.BLOCKER_CREATED_QUEUE)
     public void handleBlockerCreated(BlockerCreatedEvent event) {
@@ -52,11 +55,37 @@ public class BlockerCreatedListener {
             );
             log.info("Notification created for blocker creator: {}", createdBy);
             
-            // Notify team members if team is specified
-            // (In production, fetch team members from user-service)
-            if (event.getTeamId() != null) {
-                log.debug("Team notification for blocker {} - team members should be notified", blockerId);
-                // TODO: Fetch team members and notify them
+            // Notify team members if teamCode is specified
+            if (event.getTeamCode() != null && !event.getTeamCode().isEmpty()) {
+                log.info("Notifying team members for blocker {} with teamCode: {}", blockerId, event.getTeamCode());
+                
+                // Fetch team members from user-service
+                List<UUID> teamMemberIds = userServiceClient.getTeamMembersByCode(event.getTeamCode(), null);
+                
+                if (teamMemberIds != null && !teamMemberIds.isEmpty()) {
+                    for (UUID memberId : teamMemberIds) {
+                        // Skip creator and assigned user (already notified)
+                        if (memberId.equals(createdBy)) {
+                            continue;
+                        }
+                        if (event.getAssignedTo() != null && memberId.toString().equals(event.getAssignedTo())) {
+                            continue;
+                        }
+                        
+                        notificationService.createNotification(
+                                memberId,
+                                Notification.NotificationType.TEAM_BLOCKER_CREATED,
+                                "New Team Blocker",
+                                String.format("A new blocker '%s' was created in your team (%s)", 
+                                        event.getTitle(), event.getTeamCode()),
+                                event.getBlockerId(),
+                                "blocker"
+                        );
+                        log.info("Team notification created for team member: {} (team: {})", memberId, event.getTeamCode());
+                    }
+                } else {
+                    log.warn("No team members found for team code: {}", event.getTeamCode());
+                }
             }
             
         } catch (Exception e) {

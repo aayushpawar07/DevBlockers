@@ -102,5 +102,54 @@ public class BlockerServiceClient {
             return false;
         }
     }
+    
+    /**
+     * Get blocker details including teamCode
+     * 
+     * @param blockerId Blocker ID
+     * @param authToken JWT token for authentication (optional)
+     * @return BlockerResponse with teamCode or null if not found
+     */
+    public BlockerResponse getBlocker(UUID blockerId, String authToken) {
+        try {
+            return webClient.get()
+                    .uri(blockerServiceUrl + "/api/v1/blockers/{id}", blockerId)
+                    .headers(headers -> {
+                        if (authToken != null && !authToken.isEmpty()) {
+                            headers.setBearerAuth(authToken);
+                        }
+                    })
+                    .retrieve()
+                    .bodyToMono(BlockerResponse.class)
+                    .timeout(Duration.ofSeconds(5))
+                    .block();
+        } catch (WebClientResponseException.NotFound e) {
+            return null;
+        } catch (Exception e) {
+            log.error("Failed to get blocker: {}", blockerId, e);
+            return null;
+        }
+    }
+    
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class BlockerResponse {
+        private UUID blockerId;
+        private String title;
+        private String description;
+        private String status;
+        private String severity;
+        private UUID createdBy;
+        private UUID assignedTo;
+        private UUID teamId;
+        private String teamCode;
+        private UUID bestSolutionId;
+        private java.util.List<String> tags;
+        private java.util.List<String> mediaUrls;
+        private java.time.LocalDateTime createdAt;
+        private java.time.LocalDateTime updatedAt;
+        private java.time.LocalDateTime resolvedAt;
+    }
 }
 

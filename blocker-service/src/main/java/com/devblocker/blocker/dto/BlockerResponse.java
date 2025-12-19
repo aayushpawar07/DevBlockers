@@ -24,6 +24,7 @@ public class BlockerResponse {
     private UUID createdBy;
     private UUID assignedTo;
     private UUID teamId;
+    private String teamCode;
     private UUID bestSolutionId;
     private List<String> tags;
     private List<String> mediaUrls;

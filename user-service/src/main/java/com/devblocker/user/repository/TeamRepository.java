@@ -1,6 +1,7 @@
 package com.devblocker.user.repository;
 
 import com.devblocker.user.model.Team;
+import com.devblocker.user.model.TeamCode;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,5 +11,9 @@ import java.util.UUID;
 @Repository
 public interface TeamRepository extends JpaRepository<Team, UUID> {
     Optional<Team> findById(UUID teamId);
+    
+    Optional<Team> findByTeamCode(TeamCode teamCode);
+    
+    boolean existsByTeamCode(TeamCode teamCode);
 }
 
