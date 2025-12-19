@@ -29,6 +29,7 @@ public class UserService {
         }
         
         User user = User.builder()
+                .name(request.getName())
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
@@ -56,11 +57,23 @@ public class UserService {
         return mapToUserResponse(user);
     }
     
+    public User getUserEntityById(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+    
+    public User getUserEntityByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+    
     private UserResponse mapToUserResponse(User user) {
         return UserResponse.builder()
                 .userId(user.getUserId())
+                .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .orgId(user.getOrgId())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

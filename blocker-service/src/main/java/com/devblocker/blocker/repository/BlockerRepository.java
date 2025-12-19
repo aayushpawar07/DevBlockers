@@ -37,19 +37,10 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
            "(:createdBy IS NULL OR b.createdBy = :createdBy) AND " +
            "(:assignedTo IS NULL OR b.assignedTo = :assignedTo) AND " +
            "(:teamId IS NULL OR b.teamId = :teamId) AND " +
-           "(:teamCode IS NULL OR b.teamCode = :teamCode) AND " +
-           "(:tag IS NULL OR :tag MEMBER OF b.tags) " +
-           "ORDER BY " +
-           "CASE WHEN (:userTeamCodes IS NOT NULL AND SIZE(:userTeamCodes) > 0 AND b.teamCode IN :userTeamCodes) THEN 0 ELSE 1 END, " +
-           "CASE b.severity " +
-           "  WHEN 'CRITICAL' THEN 1 " +
-           "  WHEN 'HIGH' THEN 2 " +
-           "  WHEN 'MEDIUM' THEN 3 " +
-           "  WHEN 'LOW' THEN 4 " +
-           "  WHEN 'TRIVIAL' THEN 5 " +
-           "  ELSE 6 " +
-           "END, " +
-           "b.createdAt ASC")
+           "(:tag IS NULL OR :tag MEMBER OF b.tags) AND " +
+           "(b.visibility = 'PUBLIC' OR " +
+           " (b.visibility = 'ORG' AND (:userOrgId IS NOT NULL AND b.orgId = :userOrgId)) OR " +
+           " (b.visibility = 'GROUP' AND (:userGroupIds IS NOT NULL AND b.groupId IN :userGroupIds)))")
     Page<Blocker> findWithFilters(
             @Param("status") BlockerStatus status,
             @Param("severity") Severity severity,
@@ -87,6 +78,8 @@ public interface BlockerRepository extends JpaRepository<Blocker, UUID> {
             @Param("teamId") UUID teamId,
             @Param("teamCode") String teamCode,
             @Param("tag") String tag,
+            @Param("userOrgId") UUID userOrgId,
+            @Param("userGroupIds") java.util.List<UUID> userGroupIds,
             Pageable pageable);
     
     @Query("SELECT b FROM Blocker b WHERE " +

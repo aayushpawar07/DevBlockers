@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService';
 import { blockerService } from '../services/blockerService';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
@@ -17,6 +18,7 @@ const TEAM_FILTER_OPTIONS = [
 ];
 
 export const Dashboard = () => {
+  const navigate = useNavigate();
   const [blockers, setBlockers] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -29,8 +31,15 @@ export const Dashboard = () => {
   const { user } = useAuth();
 
   useEffect(() => {
+    // Redirect organization users to organization dashboard
+    const userInfo = authService.getUserInfo();
+    if (userInfo && userInfo.orgId && (userInfo.role === 'ORG_ADMIN' || userInfo.role === 'EMPLOYEE')) {
+      navigate('/organization/dashboard', { replace: true });
+      return;
+    }
+    
     fetchBlockers();
-  }, [teamFilter]);
+  }, [navigate]);
 
   const fetchBlockers = async () => {
     try {

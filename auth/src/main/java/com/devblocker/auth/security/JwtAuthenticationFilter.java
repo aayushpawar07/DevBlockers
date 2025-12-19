@@ -47,8 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String role = jwtService.extractClaim(jwt, claims -> claims.get("role", String.class));
                 String tokenType = jwtService.extractTokenType(jwt);
                 
+                log.debug("JWT authentication - email: {}, role: {}, type: {}", email, role, tokenType);
+                
                 // Only process access tokens in authentication filter
-                if ("access".equals(tokenType) && email != null) {
+                if ("access".equals(tokenType) && email != null && role != null) {
                     var authorities = Collections.singletonList(
                             new SimpleGrantedAuthority("ROLE_" + role)
                     );
@@ -61,10 +63,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    log.debug("Authentication set for user: {} with role: {}", email, role);
+                } else {
+                    log.warn("JWT authentication skipped - email: {}, role: {}, type: {}", email, role, tokenType);
                 }
+            } else {
+                log.debug("JWT token validation failed");
             }
         } catch (Exception e) {
-            log.debug("JWT authentication failed: {}", e.getMessage());
+            log.warn("JWT authentication failed: {}", e.getMessage(), e);
         }
         
         filterChain.doFilter(request, response);

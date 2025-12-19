@@ -23,9 +23,11 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -111,11 +113,26 @@ public class JwtService {
     }
     
     public String generateAccessToken(UUID userId, String email, String role) {
+        return generateAccessToken(userId, email, role, null, null);
+    }
+    
+    public String generateAccessToken(UUID userId, String email, String role, UUID orgId, List<UUID> groupIds) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId.toString());
         claims.put("email", email);
         claims.put("role", role);
         claims.put("type", "access");
+        
+        if (orgId != null) {
+            claims.put("orgId", orgId.toString());
+        }
+        
+        if (groupIds != null && !groupIds.isEmpty()) {
+            List<String> groupIdStrings = groupIds.stream()
+                    .map(UUID::toString)
+                    .collect(Collectors.toList());
+            claims.put("groupIds", groupIdStrings);
+        }
         
         return Jwts.builder()
                 .claims(claims)
@@ -158,6 +175,29 @@ public class JwtService {
     public UUID extractUserId(String token) {
         String userIdStr = extractClaim(token, claims -> claims.get("userId", String.class));
         return userIdStr != null ? UUID.fromString(userIdStr) : null;
+    }
+    
+    public UUID extractOrgId(String token) {
+        String orgIdStr = extractClaim(token, claims -> claims.get("orgId", String.class));
+        return orgIdStr != null ? UUID.fromString(orgIdStr) : null;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public List<UUID> extractGroupIds(String token) {
+        List<String> groupIdStrings = extractClaim(token, claims -> {
+            Object groupIds = claims.get("groupIds");
+            if (groupIds instanceof List) {
+                return (List<String>) groupIds;
+            }
+            return null;
+        });
+        
+        if (groupIdStrings != null) {
+            return groupIdStrings.stream()
+                    .map(UUID::fromString)
+                    .collect(Collectors.toList());
+        }
+        return List.of();
     }
     
     public String extractTokenType(String token) {

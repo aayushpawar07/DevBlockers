@@ -62,9 +62,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (email, password) => {
+  const register = async (name, email, password) => {
     try {
-      const response = await authService.register(email, password);
+      const response = await authService.register(name || email.split('@')[0], email, password);
       toast.success('Registration successful! Please verify your email.');
       return response;
     } catch (error) {

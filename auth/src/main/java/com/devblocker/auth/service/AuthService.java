@@ -4,12 +4,15 @@ import com.devblocker.auth.dto.AuthResponse;
 import com.devblocker.auth.dto.LoginRequest;
 import com.devblocker.auth.dto.RefreshTokenRequest;
 import com.devblocker.auth.model.User;
+import com.devblocker.auth.repository.GroupMemberRepository;
 import com.devblocker.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Slf4j
 @Service
@@ -19,6 +22,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final GroupMemberRepository groupMemberRepository;
     
     @Transactional
     public AuthResponse login(LoginRequest request) {
@@ -29,10 +33,18 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid email or password");
         }
         
+        // Get user's group IDs if they belong to an organization
+        List<java.util.UUID> groupIds = null;
+        if (user.getOrgId() != null) {
+            groupIds = groupMemberRepository.findGroupIdsByUserId(user.getUserId());
+        }
+        
         String accessToken = jwtService.generateAccessToken(
                 user.getUserId(), 
                 user.getEmail(), 
-                user.getRole().name()
+                user.getRole().name(),
+                user.getOrgId(),
+                groupIds
         );
         
         String refreshToken = jwtService.generateRefreshToken(
@@ -68,11 +80,19 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
+        // Get user's group IDs if they belong to an organization
+        List<java.util.UUID> groupIds = null;
+        if (user.getOrgId() != null) {
+            groupIds = groupMemberRepository.findGroupIdsByUserId(user.getUserId());
+        }
+        
         // Generate new tokens
         String newAccessToken = jwtService.generateAccessToken(
                 user.getUserId(), 
                 user.getEmail(), 
-                user.getRole().name()
+                user.getRole().name(),
+                user.getOrgId(),
+                groupIds
         );
         
         String newRefreshToken = jwtService.generateRefreshToken(
@@ -102,10 +122,18 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
+        // Get user's group IDs if they belong to an organization
+        List<java.util.UUID> groupIds = null;
+        if (user.getOrgId() != null) {
+            groupIds = groupMemberRepository.findGroupIdsByUserId(user.getUserId());
+        }
+        
         String accessToken = jwtService.generateAccessToken(
                 user.getUserId(), 
                 user.getEmail(), 
-                user.getRole().name()
+                user.getRole().name(),
+                user.getOrgId(),
+                groupIds
         );
         
         String refreshToken = jwtService.generateRefreshToken(

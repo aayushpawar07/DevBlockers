@@ -23,6 +23,9 @@ public class User {
     @Column(name = "user_id")
     private UUID userId;
     
+    @Column(nullable = false)
+    private String name;
+    
     @Column(nullable = false, unique = true)
     private String email;
     
@@ -30,8 +33,12 @@ public class User {
     private String passwordHash;
     
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role;
+    @Column(nullable = false, length = 50)
+    @Builder.Default
+    private Role role = Role.USER;
+    
+    @Column(name = "org_id")
+    private UUID orgId;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

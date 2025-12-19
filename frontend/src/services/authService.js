@@ -1,8 +1,13 @@
 import { authApi } from './api';
 
 export const authService = {
-  async register(email, password) {
-    const response = await authApi.post('/auth/register', { email, password });
+  async register(name, email, password) {
+    const response = await authApi.post('/auth/register', { name, email, password });
+    return response.data;
+  },
+
+  async registerOrganization(organizationData) {
+    const response = await authApi.post('/auth/organizations/register', organizationData);
     return response.data;
   },
 
@@ -44,6 +49,49 @@ export const authService = {
 
   getToken() {
     return localStorage.getItem('accessToken');
+  },
+
+  // Extract user info from JWT token
+  getUserInfo() {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return {
+        userId: payload.userId,
+        email: payload.email,
+        role: payload.role,
+        orgId: payload.orgId || null,
+        groupIds: payload.groupIds || []
+      };
+    } catch (error) {
+      console.error('Error parsing JWT token:', error);
+      return null;
+    }
+  },
+
+  getOrgId() {
+    const userInfo = this.getUserInfo();
+    return userInfo?.orgId || null;
+  },
+
+  getGroupIds() {
+    const userInfo = this.getUserInfo();
+    return userInfo?.groupIds || [];
+  },
+
+  getRole() {
+    const userInfo = this.getUserInfo();
+    return userInfo?.role || null;
+  },
+
+  isOrgAdmin() {
+    return this.getRole() === 'ORG_ADMIN';
+  },
+
+  isEmployee() {
+    return this.getRole() === 'EMPLOYEE';
   },
 };
 

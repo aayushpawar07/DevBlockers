@@ -55,19 +55,44 @@ public class BlockerController {
             @RequestParam(required = false) UUID teamId,
             @RequestParam(required = false) String teamCode,
             @RequestParam(required = false) String tag,
-            @RequestParam(required = false) UUID userId,
+            @RequestHeader(value = "X-User-Org-Id", required = false) UUID userOrgId,
+            @RequestHeader(value = "X-User-Group-Ids", required = false) String userGroupIdsStr,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         
+        // Parse group IDs from header (comma-separated)
+        java.util.List<UUID> userGroupIds = null;
+        if (userGroupIdsStr != null && !userGroupIdsStr.isEmpty()) {
+            userGroupIds = java.util.Arrays.stream(userGroupIdsStr.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(UUID::fromString)
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        
         PageResponse<BlockerResponse> response = blockerService.getAllBlockers(
-                status, severity, createdBy, assignedTo, teamId, teamCode, tag, userId, page, size);
+                status, severity, createdBy, assignedTo, teamId, tag, userOrgId, userGroupIds, page, size);
         return ResponseEntity.ok(response);
     }
     
     @GetMapping("/{id}")
     @Operation(summary = "Get blocker", description = "Retrieves a specific blocker by ID")
-    public ResponseEntity<BlockerResponse> getBlocker(@PathVariable UUID id) {
-        BlockerResponse response = blockerService.getBlocker(id);
+    public ResponseEntity<BlockerResponse> getBlocker(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Org-Id", required = false) UUID userOrgId,
+            @RequestHeader(value = "X-User-Group-Ids", required = false) String userGroupIdsStr) {
+        
+        // Parse group IDs from header (comma-separated)
+        java.util.List<UUID> userGroupIds = null;
+        if (userGroupIdsStr != null && !userGroupIdsStr.isEmpty()) {
+            userGroupIds = java.util.Arrays.stream(userGroupIdsStr.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(UUID::fromString)
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        
+        BlockerResponse response = blockerService.getBlocker(id, userOrgId, userGroupIds);
         return ResponseEntity.ok(response);
     }
     

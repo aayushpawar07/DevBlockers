@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { blockerService } from '../../services/blockerService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../services/authService';
+import { groupService } from '../../services/groupService';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea, Select } from '../../components/ui/Input';
 import { BLOCKER_SEVERITY } from '../../utils/constants';
-import { X, Upload, Image as ImageIcon, Video } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Video, Globe, Building2, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const TEAM_CODES = [
@@ -24,15 +26,36 @@ export const CreateBlocker = () => {
     severity: 'MEDIUM',
     teamCode: '',
     tags: '',
+    visibility: 'PUBLIC',
+    groupId: '',
   });
   const [userTeams, setUserTeams] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadedFileUrls, setUploadedFileUrls] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [groups, setGroups] = useState([]);
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  const userInfo = authService.getUserInfo();
+  const orgId = userInfo?.orgId;
+  const isOrgUser = userInfo?.role === 'ORG_ADMIN' || userInfo?.role === 'EMPLOYEE';
+
+  useEffect(() => {
+    if (isOrgUser && orgId) {
+      loadGroups();
+    }
+  }, [isOrgUser, orgId]);
+
+  const loadGroups = async () => {
+    try {
+      const groupsData = await groupService.getGroups(orgId);
+      setGroups(groupsData);
+    } catch (error) {
+      console.error('Failed to load groups:', error);
+    }
+  };
 
   useEffect(() => {
     if (user?.userId) {
@@ -133,12 +156,23 @@ export const CreateBlocker = () => {
       }
       
       console.log('Creating blocker with mediaUrls:', finalMediaUrls);
-      const blocker = await blockerService.createBlocker({
+      const blockerData = {
         ...formData,
         createdBy: user.userId,
         tags: formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
         mediaUrls: finalMediaUrls,
-      });
+        visibility: formData.visibility,
+      };
+      
+      // Add org/group info if applicable
+      if (formData.visibility === 'ORG' && orgId) {
+        blockerData.orgId = orgId;
+      } else if (formData.visibility === 'GROUP' && formData.groupId) {
+        blockerData.groupId = formData.groupId;
+        if (orgId) blockerData.orgId = orgId;
+      }
+      
+      const blocker = await blockerService.createBlocker(blockerData);
       console.log('Blocker created:', blocker);
       console.log('Created blocker mediaUrls:', blocker.mediaUrls);
       toast.success('Blocker created successfully!');
@@ -200,6 +234,56 @@ export const CreateBlocker = () => {
               onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
               placeholder="e.g., bug, frontend, api"
             />
+            
+            {/* Visibility and Organization Settings */}
+            {isOrgUser && (
+              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Globe className="w-5 h-5 text-blue-600" />
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Visibility
+                  </label>
+                </div>
+                <Select
+                  value={formData.visibility}
+                  onChange={(e) => setFormData({ ...formData, visibility: e.target.value, groupId: '' })}
+                  options={[
+                    { value: 'PUBLIC', label: '🌐 Public - Everyone can see' },
+                    { value: 'ORG', label: '🏢 Organization - Only org members' },
+                    { value: 'GROUP', label: '👥 Group - Only group members' },
+                  ]}
+                />
+                
+                {formData.visibility === 'GROUP' && groups.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-4 h-4 text-blue-600" />
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Select Group
+                      </label>
+                    </div>
+                    <Select
+                      value={formData.groupId}
+                      onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+                      options={[
+                        { value: '', label: 'Select a group...' },
+                        ...groups.map(group => ({
+                          value: group.groupId,
+                          label: group.name
+                        }))
+                      ]}
+                      required={formData.visibility === 'GROUP'}
+                    />
+                  </div>
+                )}
+                
+                {formData.visibility === 'GROUP' && groups.length === 0 && (
+                  <p className="text-sm text-amber-600 mt-2">
+                    No groups available. Create a group in your organization dashboard first.
+                  </p>
+                )}
+              </div>
+            )}
             
             {/* File Upload Section */}
             <div className="space-y-4">

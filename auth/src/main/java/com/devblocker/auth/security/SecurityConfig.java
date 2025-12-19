@@ -40,11 +40,13 @@ public class SecurityConfig {
                                        "/api/v1/auth/send-otp",
                                        "/api/v1/auth/verify-otp",
                                        "/api/v1/auth/otp/**",
+                                       "/api/v1/organizations/register",
                                        "/actuator/health",
                                        "/actuator/info",
                                        "/swagger-ui/**",
                                        "/api-docs/**",
                                        "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/v1/organizations/**").authenticated()
                         .requestMatchers("/api/v1/auth/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
