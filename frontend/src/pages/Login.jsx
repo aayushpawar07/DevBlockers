@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/authService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { LogIn, Mail, Lock, ArrowRight } from 'lucide-react';
@@ -29,7 +30,15 @@ export const Login = () => {
     setLoading(true);
     try {
       await login(email.trim(), password);
-      navigate('/dashboard');
+      // Check if user belongs to an organization
+      const userInfo = authService.getUserInfo();
+      if (userInfo && userInfo.orgId) {
+        // Redirect to organization dashboard if user belongs to an organization
+        navigate('/organization/dashboard');
+      } else {
+        // Regular user, go to regular dashboard
+        navigate('/dashboard');
+      }
     } catch (error) {
       // Error is handled by AuthContext
     } finally {

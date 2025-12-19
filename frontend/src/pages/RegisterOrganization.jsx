@@ -51,7 +51,36 @@ export const RegisterOrganization = () => {
         navigate('/login');
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to register organization';
+      console.error('Registration error:', error);
+      let errorMessage = 'Failed to register organization';
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        // Handle validation errors with nested errors object
+        if (data.errors && typeof data.errors === 'object') {
+          const errorMessages = Object.entries(data.errors)
+            .map(([field, message]) => {
+              // Convert camelCase to readable format
+              const fieldName = field.replace(/([A-Z])/g, ' $1').toLowerCase();
+              return `${fieldName}: ${message}`;
+            })
+            .join(', ');
+          errorMessage = errorMessages || data.message || data.error || errorMessage;
+        } else if (typeof data === 'object') {
+          // Handle flat error object
+          const errorMessages = Object.entries(data)
+            .filter(([key]) => key !== 'message' && key !== 'error')
+            .map(([field, message]) => {
+              const fieldName = field.replace(/([A-Z])/g, ' $1').toLowerCase();
+              return `${fieldName}: ${message}`;
+            })
+            .join(', ');
+          errorMessage = errorMessages || data.message || data.error || errorMessage;
+        } else {
+          errorMessage = data.message || data.error || errorMessage;
+        }
+      }
+      
       toast.error(errorMessage);
     } finally {
       setLoading(false);

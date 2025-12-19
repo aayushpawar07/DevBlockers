@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService';
 import { blockerService } from '../services/blockerService';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -10,6 +11,7 @@ import { PlusCircle, AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-
 import toast from 'react-hot-toast';
 
 export const Dashboard = () => {
+  const navigate = useNavigate();
   const [blockers, setBlockers] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -20,8 +22,15 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Redirect organization users to organization dashboard
+    const userInfo = authService.getUserInfo();
+    if (userInfo && userInfo.orgId && (userInfo.role === 'ORG_ADMIN' || userInfo.role === 'EMPLOYEE')) {
+      navigate('/organization/dashboard', { replace: true });
+      return;
+    }
+    
     fetchBlockers();
-  }, []);
+  }, [navigate]);
 
   const fetchBlockers = async () => {
     try {

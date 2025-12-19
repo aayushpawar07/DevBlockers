@@ -41,8 +41,10 @@ export const BlockerDetail = () => {
       console.log('MediaUrls length:', data.mediaUrls?.length);
       setBlocker(data);
     } catch (error) {
-      toast.error('Failed to fetch blocker');
-      console.error(error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to fetch blocker';
+      toast.error(errorMessage);
+      console.error('Error fetching blocker:', error);
+      console.error('Error response:', error.response?.data);
       navigate('/blockers');
     } finally {
       setLoading(false);

@@ -11,5 +11,6 @@ import java.util.UUID;
 public interface GroupRepository extends JpaRepository<Group, UUID> {
     List<Group> findByOrgId(UUID orgId);
     boolean existsByOrgIdAndName(UUID orgId, String name);
+    List<Group> findByOrgIdAndName(UUID orgId, String name);
 }
 

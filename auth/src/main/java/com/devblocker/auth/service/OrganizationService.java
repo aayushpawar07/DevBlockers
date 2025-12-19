@@ -1,8 +1,12 @@
 package com.devblocker.auth.service;
 
+import com.devblocker.auth.model.Group;
+import com.devblocker.auth.model.GroupMember;
 import com.devblocker.auth.model.Organization;
 import com.devblocker.auth.model.Role;
 import com.devblocker.auth.model.User;
+import com.devblocker.auth.repository.GroupMemberRepository;
+import com.devblocker.auth.repository.GroupRepository;
 import com.devblocker.auth.repository.OrganizationRepository;
 import com.devblocker.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +26,8 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final GroupRepository groupRepository;
+    private final GroupMemberRepository groupMemberRepository;
     
     @Transactional
     public Organization createOrganization(String name, String domain, String adminEmail, String adminPassword, String adminName) {
@@ -54,7 +60,15 @@ public class OrganizationService {
         
         userRepository.save(admin);
         
-        log.info("Organization created: {} with admin: {}", organization.getName(), adminEmail);
+        // Auto-create "Common Group" for the organization
+        Group commonGroup = Group.builder()
+                .orgId(organization.getOrgId())
+                .name("Common Group")
+                .description("Default group for all organization members")
+                .build();
+        groupRepository.save(commonGroup);
+        
+        log.info("Organization created: {} with admin: {} and Common Group", organization.getName(), adminEmail);
         
         return organization;
     }
@@ -90,6 +104,22 @@ public class OrganizationService {
                 .build();
         
         employee = userRepository.save(employee);
+        
+        // Auto-add employee to "Common Group" if it exists
+        List<Group> commonGroups = groupRepository.findByOrgIdAndName(orgId, "Common Group");
+        if (!commonGroups.isEmpty()) {
+            Group commonGroup = commonGroups.get(0);
+            // Check if already a member
+            if (!groupMemberRepository.existsByGroupIdAndUserId(commonGroup.getGroupId(), employee.getUserId())) {
+                GroupMember member = GroupMember.builder()
+                        .groupId(commonGroup.getGroupId())
+                        .userId(employee.getUserId())
+                        .build();
+                groupMemberRepository.save(member);
+                log.info("Employee {} automatically added to Common Group", email);
+            }
+        }
+        
         log.info("Employee created: {} in organization: {}", email, orgId);
         
         return employee;

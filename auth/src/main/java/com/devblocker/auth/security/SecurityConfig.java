@@ -40,6 +40,7 @@ public class SecurityConfig {
                                        "/api/v1/auth/send-otp",
                                        "/api/v1/auth/verify-otp",
                                        "/api/v1/auth/otp/**",
+                                       "/api/v1/organizations/register",
                                        "/actuator/health",
                                        "/actuator/info",
                                        "/swagger-ui/**",

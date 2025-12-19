@@ -29,12 +29,16 @@ const createApiClient = (baseURL) => {
         const payload = JSON.parse(atob(token.split('.')[1]));
         if (payload.orgId) {
           config.headers['X-User-Org-Id'] = payload.orgId;
+          console.log('Setting X-User-Org-Id header:', payload.orgId);
         }
         if (payload.groupIds && Array.isArray(payload.groupIds) && payload.groupIds.length > 0) {
           config.headers['X-User-Group-Ids'] = payload.groupIds.join(',');
+          console.log('Setting X-User-Group-Ids header:', payload.groupIds.join(','));
+        } else {
+          console.log('No groupIds found in token or groupIds is empty');
         }
       } catch (error) {
-        // Ignore JWT parsing errors
+        console.error('Error parsing JWT token for org/group info:', error);
       }
     }
     // Don't set Content-Type for FormData - let browser set it with boundary

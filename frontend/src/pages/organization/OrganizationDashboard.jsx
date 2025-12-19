@@ -26,11 +26,17 @@ export const OrganizationDashboard = () => {
   const [organization, setOrganization] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [groupMembersMap, setGroupMembersMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null);
+  const isAdmin = userRole === 'ORG_ADMIN';
   
   // Modals
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showAddToGroupModal, setShowAddToGroupModal] = useState(false);
+  const [selectedEmployeeForGroup, setSelectedEmployeeForGroup] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
   
   // Employee form
   const [employeeName, setEmployeeName] = useState('');
@@ -43,14 +49,16 @@ export const OrganizationDashboard = () => {
 
   useEffect(() => {
     const userInfo = authService.getUserInfo();
-    if (!userInfo || userInfo.role !== 'ORG_ADMIN') {
-      toast.error('Access denied. Organization admin access required.');
+    // Allow both ORG_ADMIN and EMPLOYEE to access the dashboard
+    if (!userInfo || (userInfo.role !== 'ORG_ADMIN' && userInfo.role !== 'EMPLOYEE')) {
+      toast.error('Access denied. Organization access required.');
       navigate('/dashboard');
       return;
     }
     
     if (userInfo.orgId) {
       setOrgId(userInfo.orgId);
+      setUserRole(userInfo.role);
       loadOrganizationData(userInfo.orgId);
     } else {
       toast.error('No organization found');
@@ -70,6 +78,17 @@ export const OrganizationDashboard = () => {
       setOrganization(orgData);
       setEmployees(employeesData);
       setGroups(groupsData);
+      
+      // Load member counts for each group
+      const membersPromises = groupsData.map(group => 
+        groupService.getGroupMembers(id, group.groupId).catch(() => [])
+      );
+      const membersResults = await Promise.all(membersPromises);
+      const membersMap = {};
+      groupsData.forEach((group, index) => {
+        membersMap[group.groupId] = membersResults[index] || [];
+      });
+      setGroupMembersMap(membersMap);
     } catch (error) {
       toast.error('Failed to load organization data');
       console.error(error);
@@ -125,6 +144,25 @@ export const OrganizationDashboard = () => {
     }
   };
 
+  const handleAddEmployeeToGroup = async () => {
+    if (!selectedEmployeeForGroup || !selectedGroupId) {
+      toast.error('Please select both employee and group');
+      return;
+    }
+
+    try {
+      await groupService.addMember(orgId, selectedGroupId, selectedEmployeeForGroup.userId);
+      toast.success('Employee added to group successfully!');
+      setShowAddToGroupModal(false);
+      setSelectedEmployeeForGroup(null);
+      setSelectedGroupId('');
+      loadOrganizationData(orgId);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to add employee to group';
+      toast.error(errorMessage);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -144,7 +182,18 @@ export const OrganizationDashboard = () => {
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{organization?.name || 'Organization'}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-gray-900">{organization?.name || 'Organization'}</h1>
+                  {userRole && (
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      isAdmin 
+                        ? 'bg-purple-100 text-purple-700' 
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {isAdmin ? 'Admin' : 'Employee'}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600">Organization Dashboard</p>
               </div>
             </div>
@@ -197,34 +246,36 @@ export const OrganizationDashboard = () => {
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowEmployeeModal(true)}>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                <UserPlus className="w-6 h-6 text-primary-600" />
+        {/* Quick Actions - Only show for admins */}
+        {isAdmin && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowEmployeeModal(true)}>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                  <UserPlus className="w-6 h-6 text-primary-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">Add Employee</h3>
+                  <p className="text-sm text-gray-600">Create a new employee account</p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-gray-400" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900">Add Employee</h3>
-                <p className="text-sm text-gray-600">Create a new employee account</p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-gray-400" />
-            </div>
-          </Card>
+            </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowGroupModal(true)}>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <PlusCircle className="w-6 h-6 text-purple-600" />
+            <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowGroupModal(true)}>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <PlusCircle className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">Create Group</h3>
+                  <p className="text-sm text-gray-600">Set up a new team group</p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-gray-400" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900">Create Group</h3>
-                <p className="text-sm text-gray-600">Set up a new team group</p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-gray-400" />
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        )}
 
         {/* Employees Section */}
         <Card className="mb-8">
@@ -256,9 +307,25 @@ export const OrganizationDashboard = () => {
                         <p className="text-sm text-gray-600">{employee.email}</p>
                       </div>
                     </div>
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                      {employee.role}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                        {employee.role}
+                      </span>
+                      {isAdmin && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedEmployeeForGroup(employee);
+                            setShowAddToGroupModal(true);
+                          }}
+                          className="text-xs"
+                        >
+                          <UserPlus className="w-3 h-3 mr-1" />
+                          Add to Group
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -285,21 +352,42 @@ export const OrganizationDashboard = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {groups.map((group) => (
-                  <div key={group.groupId} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <h3 className="font-semibold text-gray-900 mb-1">{group.name}</h3>
-                    {group.description && (
-                      <p className="text-sm text-gray-600 mb-3">{group.description}</p>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate(`/organization/groups/${group.groupId}`)}
-                    >
-                      Manage Members
-                    </Button>
-                  </div>
-                ))}
+                {groups.map((group) => {
+                  const memberCount = groupMembersMap[group.groupId]?.length || 0;
+                  return (
+                    <div key={group.groupId} className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                            {group.name}
+                            {group.name === 'Common Group' && (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                Default
+                              </span>
+                            )}
+                          </h3>
+                          {group.description && (
+                            <p className="text-sm text-gray-600 mb-2">{group.description}</p>
+                          )}
+                          <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => navigate(`/organization/${orgId}/groups/${group.groupId}`)}
+                        >
+                          {isAdmin ? 'Manage Members' : 'View Members'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -427,6 +515,87 @@ export const OrganizationDashboard = () => {
                   </Button>
                 </div>
               </form>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Employee to Group Modal */}
+      {showAddToGroupModal && selectedEmployeeForGroup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Add Employee to Group</h2>
+                <button onClick={() => {
+                  setShowAddToGroupModal(false);
+                  setSelectedEmployeeForGroup(null);
+                  setSelectedGroupId('');
+                }} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Employee: <span className="font-semibold text-gray-900">{selectedEmployeeForGroup.name}</span>
+                </p>
+              </div>
+
+              {groups.length === 0 ? (
+                <div className="text-center py-8">
+                  <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-4">No groups available. Create a group first.</p>
+                  <Button onClick={() => {
+                    setShowAddToGroupModal(false);
+                    setShowGroupModal(true);
+                  }}>
+                    Create Group
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Select Group
+                    </label>
+                    <select
+                      value={selectedGroupId}
+                      onChange={(e) => setSelectedGroupId(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">-- Select a group --</option>
+                      {groups.map((group) => (
+                        <option key={group.groupId} value={group.groupId}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button 
+                      type="button" 
+                      className="flex-1" 
+                      onClick={handleAddEmployeeToGroup}
+                      disabled={!selectedGroupId}
+                    >
+                      Add to Group
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowAddToGroupModal(false);
+                        setSelectedEmployeeForGroup(null);
+                        setSelectedGroupId('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
         </div>

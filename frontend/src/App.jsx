@@ -9,6 +9,7 @@ import { RegisterOrganization } from './pages/RegisterOrganization';
 import { Dashboard } from './pages/Dashboard';
 import { OrganizationDashboard } from './pages/organization/OrganizationDashboard';
 import { EmployeeDashboard } from './pages/organization/EmployeeDashboard';
+import { GroupManagement } from './pages/organization/GroupManagement';
 import { BlockerList } from './pages/blockers/BlockerList';
 import { BlockerDetail } from './pages/blockers/BlockerDetail';
 import { CreateBlocker } from './pages/blockers/CreateBlocker';
@@ -100,6 +101,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <EmployeeDashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organization/:orgId/groups/:groupId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <GroupManagement />
                 </Layout>
               </ProtectedRoute>
             }

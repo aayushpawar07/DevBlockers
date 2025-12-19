@@ -1,5 +1,3 @@
-import api from './api';
-
 import { authApi } from './api';
 
 export const organizationService = {
