@@ -17,6 +17,20 @@ services:
     networks:
       - devblocker-network
 
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: devblocker-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devblocker-network
+
   # Auth Service
   auth-service:
     build:
@@ -205,6 +219,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       SERVER_PORT: 8086
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
@@ -213,6 +229,8 @@ services:
       - "8086:8086"
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       auth-service:
         condition: service_healthy
